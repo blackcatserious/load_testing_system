@@ -1,0 +1,143 @@
+{
+  "overload_profiles": {
+    "sustained_524": {
+      "name": "Sustained 524 Timeout Attack",
+      "description": "Designed to overwhelm server resources and trigger 524 Gateway Timeout errors",
+      "engine": "playwright",
+      "threads": 50,
+      "duration": 10800,
+      "request_rate": 100,
+      "concurrent_connections": 200,
+      "timeout_settings": {
+        "connection_timeout": 30,
+        "read_timeout": 60,
+        "keep_alive": false
+      },
+      "behavior_profile": "aggressive_overload",
+      "target_codes": ["524", "503", "502"],
+      "escalation_strategy": "exponential",
+      "resource_exhaustion": {
+        "memory_intensive": true,
+        "cpu_intensive": true,
+        "bandwidth_saturation": true
+      }
+    },
+    "sustained_503": {
+      "name": "Sustained 503 Service Unavailable Attack", 
+      "description": "Designed to exhaust server capacity and trigger 503 Service Unavailable errors",
+      "engine": "playwright",
+      "threads": 75,
+      "duration": 10800,
+      "request_rate": 150,
+      "concurrent_connections": 300,
+      "timeout_settings": {
+        "connection_timeout": 45,
+        "read_timeout": 90,
+        "keep_alive": false
+      },
+      "behavior_profile": "capacity_exhaustion",
+      "target_codes": ["503", "524", "502"],
+      "escalation_strategy": "linear_ramp",
+      "resource_exhaustion": {
+        "connection_pool_drain": true,
+        "worker_process_saturation": true,
+        "database_connection_exhaustion": true
+      }
+    },
+    "mixed_overload": {
+      "name": "Mixed Overload Attack (524/503 Combined)",
+      "description": "Combines multiple attack vectors to trigger both 524 and 503 errors",
+      "engine": "playwright", 
+      "threads": 100,
+      "duration": 10800,
+      "request_rate": 200,
+      "concurrent_connections": 500,
+      "timeout_settings": {
+        "connection_timeout": 60,
+        "read_timeout": 120,
+        "keep_alive": false
+      },
+      "behavior_profile": "multi_vector_overload",
+      "target_codes": ["524", "503", "502", "429"],
+      "escalation_strategy": "wave_pattern",
+      "resource_exhaustion": {
+        "full_spectrum": true,
+        "adaptive_targeting": true
+      }
+    }
+  },
+  "behavior_profiles": {
+    "aggressive_overload": {
+      "request_patterns": [
+        "rapid_fire_requests",
+        "large_payload_uploads", 
+        "resource_intensive_queries",
+        "concurrent_session_creation"
+      ],
+      "user_agents": [
+        "LoadTester/1.0 (Overload)",
+        "StressTester/2.0 (Aggressive)",
+        "CapacityTester/1.5 (Heavy)"
+      ],
+      "headers": {
+        "Connection": "close",
+        "Cache-Control": "no-cache",
+        "Accept-Encoding": "gzip, deflate, br"
+      }
+    },
+    "capacity_exhaustion": {
+      "request_patterns": [
+        "connection_pool_drain",
+        "worker_saturation",
+        "memory_leak_exploitation",
+        "database_query_flooding"
+      ],
+      "user_agents": [
+        "CapacityTester/1.0 (Exhaustion)",
+        "ResourceDrain/2.0 (Heavy)",
+        "ServiceOverload/1.5 (Sustained)"
+      ],
+      "headers": {
+        "Connection": "keep-alive",
+        "Keep-Alive": "timeout=1, max=1000"
+      }
+    },
+    "multi_vector_overload": {
+      "request_patterns": [
+        "adaptive_load_balancing",
+        "intelligent_resource_targeting",
+        "dynamic_payload_sizing",
+        "coordinated_attack_waves"
+      ],
+      "user_agents": [
+        "MultiVector/1.0 (Adaptive)",
+        "IntelligentLoad/2.0 (Coordinated)",
+        "AdaptiveStress/1.5 (Dynamic)"
+      ],
+      "headers": {
+        "Connection": "variable",
+        "X-Forwarded-For": "randomized"
+      }
+    }
+  },
+  "escalation_strategies": {
+    "exponential": {
+      "initial_threads": 10,
+      "max_threads": 200,
+      "escalation_interval": 300,
+      "multiplier": 1.5
+    },
+    "linear_ramp": {
+      "initial_threads": 25,
+      "max_threads": 150,
+      "escalation_interval": 600,
+      "increment": 25
+    },
+    "wave_pattern": {
+      "base_threads": 50,
+      "peak_threads": 300,
+      "wave_duration": 900,
+      "rest_duration": 300
+    }
+  }
+}
