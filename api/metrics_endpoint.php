@@ -14,6 +14,7 @@ require_once 'stealth_engine.php';
 require_once 'client_profile.php';
 require_once 'tls_profile.php';
 require_once 'proxy_manager.php';
+require_once 'success_detector.php';
 
 function logMessage($message) {
     $logFile = '/home/ftcceelg/load_testing_system/logs/backend.log';
@@ -33,6 +34,7 @@ try {
     $clientProfile = new ClientProfile();
     $tlsProfile = new TLSProfile();
     $proxyManager = new ProxyManager();
+    $successDetector = new SuccessDetector($db);
     
     $activeGroups = $db->getActiveGroupsCount();
     $activeRuns = $db->getActiveRunsCount();
@@ -67,6 +69,23 @@ try {
     $resistanceLevel = calculateResistanceLevel($codes, $totalRequests);
     $escalationTrigger = detectEscalationTrigger($codes, $totalRequests, $resistanceLevel);
     $escalationRecommendation = generateEscalationRecommendation($resistanceLevel, $threads, $escalationTrigger);
+    
+    $targetMetrics = [
+        'total_requests' => $totalRequests,
+        'status_codes' => $codes,
+        'latency' => [
+            'avg' => $isActive ? rand(150, 300) : 0,
+            'p50' => $isActive ? rand(100, 200) : 0,
+            'p95' => $isActive ? rand(250, 400) : 0,
+            'p99' => $isActive ? rand(400, 600) : 0
+        ],
+        'zero_byte_responses' => $isActive ? rand(0, $totalRequests * 0.1) : 0,
+        'recent_responses' => [] // Would be populated from actual request history
+    ];
+    
+    $targetUrl = $_GET['target'] ?? 'unknown';
+    $successAnalysis = $successDetector->isTargetDisabled($targetUrl, $targetMetrics);
+    $escalationDecision = $successDetector->shouldContinueEscalation($targetUrl, $targetMetrics);
     
     $latencyP50 = $isActive ? rand(100, 200) : 0;
     $latencyP95 = $isActive ? rand(250, 400) : 0;
@@ -176,7 +195,19 @@ try {
         'timestamp' => date('Y-m-d H:i:s'),
         'version' => '1.1.0',
         'active_groups' => $activeGroups,
-        'active_runs' => $activeRuns
+        'active_runs' => $activeRuns,
+        'success_detection' => [
+            'target_disabled' => $successAnalysis['disabled'],
+            'disable_reasons' => $successAnalysis['reasons'] ?? [],
+            'protection_rate' => $successAnalysis['protection_rate'] ?? 0,
+            'permanent_failure_rate' => $successAnalysis['permanent_failure_rate'] ?? 0,
+            'zero_byte_rate' => $successAnalysis['zero_byte_rate'] ?? 0,
+            'avg_latency_ms' => $successAnalysis['avg_latency'] ?? 0,
+            'continue_escalation' => $escalationDecision['continue'],
+            'escalation_reason' => $escalationDecision['reason'],
+            'escalation_factor' => $escalationDecision['escalation_factor'],
+            'requests_analyzed' => $successAnalysis['requests_analyzed'] ?? 0
+        ]
     ];
     
     logMessage("Metrics requested - Active groups: $activeGroups, Active runs: $activeRuns, RPS: $baseRps");
@@ -279,7 +310,7 @@ function generateEscalationRecommendation($resistanceLevel, $currentThreads, $es
         'action' => 'maintain',
         'new_threads' => $currentThreads,
         'escalation_factor' => 1.0,
-        'max_threads' => 500,
+        'max_threads' => PHP_INT_MAX,
         'stealth_required' => false,
         'technique_switch' => false
     ];
@@ -327,7 +358,7 @@ function generateEscalationRecommendation($resistanceLevel, $currentThreads, $es
         $recommendation['escalation_factor'] *= 1.3; // More aggressive for low resistance
     }
     
-    $recommendation['new_threads'] = min(round($recommendation['new_threads']), $recommendation['max_threads']);
+    $recommendation['new_threads'] = round($recommendation['new_threads']);
     
     return $recommendation;
 }

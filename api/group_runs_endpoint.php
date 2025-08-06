@@ -360,6 +360,182 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             }
             exit();
             
+        case 'update_target_status':
+            $groupId = $data['group_id'] ?? '';
+            $runId = $data['run_id'] ?? '';
+            $targetUrl = $data['target_url'] ?? '';
+            $targetStatus = $data['target_status'] ?? 'active';
+            $targetDisabled = $data['target_disabled'] ?? false;
+            $successDetection = $data['success_detection'] ?? [];
+            
+            if (empty($groupId) || empty($runId)) {
+                logMessage("ERROR: Missing group_id or run_id for target status update");
+                echo json_encode([
+                    'success' => false,
+                    'error' => 'Missing group_id or run_id'
+                ]);
+                exit();
+            }
+            
+            try {
+                $pdo = $db->getPDO();
+                $stmt = $pdo->prepare("UPDATE runs SET target_status = ? WHERE run_id = ? AND group_id = ?");
+                $stmt->execute([$targetStatus, $runId, $groupId]);
+                
+                logMessage("Target status updated: Group $groupId, Run $runId -> target_status: $targetStatus");
+                
+                if ($targetDisabled) {
+                    logMessage("SUCCESS DETECTION: Target disabled for group $groupId, run $runId, target: $targetUrl - permanent failure achieved");
+                    
+                    $reportData = [
+                        'group_id' => $groupId,
+                        'run_id' => $runId,
+                        'target_url' => $targetUrl,
+                        'timestamp' => date('Y-m-d H:i:s'),
+                        'target_status' => 'disabled',
+                        'success_detection' => true,
+                        'permanent_failure_achieved' => true,
+                        'escalation_successful' => true,
+                        'success_metrics' => $successDetection
+                    ];
+                    
+                    $reportsDir = '/home/ftcceelg/load_testing_system/reports';
+                    if (!is_dir($reportsDir)) {
+                        mkdir($reportsDir, 0755, true);
+                    }
+                    
+                    $reportFile = $reportsDir . "/group_{$groupId}_run_{$runId}_SUCCESS_" . date('Y-m-d_H-i-s') . ".json";
+                    file_put_contents($reportFile, json_encode($reportData, JSON_PRETTY_PRINT));
+                    
+                    logMessage("SUCCESS REPORT: Generated success report file: $reportFile");
+                }
+                
+                echo json_encode([
+                    'success' => true,
+                    'group_id' => $groupId,
+                    'run_id' => $runId,
+                    'target_status' => $targetStatus,
+                    'target_disabled' => $targetDisabled,
+                    'message' => 'Target status updated successfully'
+                ]);
+                
+            } catch (Exception $e) {
+                logMessage("ERROR updating target status: " . $e->getMessage());
+                echo json_encode([
+                    'success' => false,
+                    'error' => 'Database error'
+                ]);
+            }
+            exit();
+            
+        case 'generate_group_report':
+            $groupId = $data['group_id'] ?? '';
+            
+            if (empty($groupId)) {
+                logMessage("ERROR: Missing group_id for group report generation");
+                echo json_encode([
+                    'success' => false,
+                    'error' => 'Missing group_id'
+                ]);
+                exit();
+            }
+            
+            try {
+                $pdo = $db->getPDO();
+                
+                $stmt = $pdo->prepare("SELECT * FROM groups WHERE group_id = ?");
+                $stmt->execute([$groupId]);
+                $group = $stmt->fetch();
+                
+                if (!$group) {
+                    logMessage("ERROR: Group not found for report: $groupId");
+                    echo json_encode([
+                        'success' => false,
+                        'error' => 'Group not found'
+                    ]);
+                    exit();
+                }
+                
+                $stmt = $pdo->prepare("SELECT * FROM runs WHERE group_id = ?");
+                $stmt->execute([$groupId]);
+                $runs = $stmt->fetchAll();
+                
+                $disabledTargets = [];
+                $activeTargets = [];
+                
+                foreach ($runs as $run) {
+                    if (($run['target_status'] ?? 'active') === 'disabled') {
+                        $disabledTargets[] = $run['target_url'];
+                    } else {
+                        $activeTargets[] = $run['target_url'];
+                    }
+                }
+                
+                $groupReportData = [
+                    'group_id' => $groupId,
+                    'targets' => json_decode($group['targets'], true),
+                    'profile_id' => $group['profile_id'],
+                    'threads' => $group['threads'],
+                    'duration' => $group['duration'],
+                    'engine' => $group['engine'],
+                    'behavior_profile_id' => $group['behavior_profile_id'],
+                    'status' => $group['status'],
+                    'started_at' => $group['started_at'],
+                    'finished_at' => $group['finished_at'],
+                    'generated_at' => date('Y-m-d H:i:s'),
+                    'unlimited_mode_used' => ($group['threads'] > 500 || $group['duration'] > 10800),
+                    'success_summary' => [
+                        'total_targets' => count($runs),
+                        'disabled_targets' => count($disabledTargets),
+                        'active_targets' => count($activeTargets),
+                        'success_rate' => count($runs) > 0 ? (count($disabledTargets) / count($runs)) * 100 : 0
+                    ],
+                    'disabled_targets' => $disabledTargets,
+                    'active_targets' => $activeTargets,
+                    'runs' => $runs,
+                    'stealth_features' => [
+                        'proxy_rotation' => true,
+                        'ja3_fingerprinting' => true,
+                        'user_agent_rotation' => true,
+                        'tls_profile_rotation' => true,
+                        'behavior_emulation' => true,
+                        'unlimited_escalation' => true
+                    ]
+                ];
+                
+                $reportsDir = '/home/ftcceelg/load_testing_system/reports';
+                if (!is_dir($reportsDir)) {
+                    mkdir($reportsDir, 0755, true);
+                }
+                
+                $reportFile = $reportsDir . "/group_{$groupId}_FINAL_" . date('Y-m-d_H-i-s') . ".json";
+                file_put_contents($reportFile, json_encode($groupReportData, JSON_PRETTY_PRINT));
+                
+                $csvFile = $reportsDir . "/group_{$groupId}_FINAL_" . date('Y-m-d_H-i-s') . ".csv";
+                $csvData = "group_id,total_targets,disabled_targets,active_targets,success_rate,unlimited_mode_used,generated_at\n";
+                $csvData .= "{$groupId}," . count($runs) . "," . count($disabledTargets) . "," . count($activeTargets) . "," . $groupReportData['success_summary']['success_rate'] . "," . ($groupReportData['unlimited_mode_used'] ? 'true' : 'false') . "," . date('Y-m-d H:i:s') . "\n";
+                file_put_contents($csvFile, $csvData);
+                
+                logMessage("GROUP REPORT GENERATED: Created final group report files: $reportFile and $csvFile");
+                
+                echo json_encode([
+                    'success' => true,
+                    'group_id' => $groupId,
+                    'report_file' => $reportFile,
+                    'csv_file' => $csvFile,
+                    'success_summary' => $groupReportData['success_summary'],
+                    'message' => 'Group report generated successfully'
+                ]);
+                
+            } catch (Exception $e) {
+                logMessage("ERROR generating group report: " . $e->getMessage());
+                echo json_encode([
+                    'success' => false,
+                    'error' => 'Database error'
+                ]);
+            }
+            exit();
+            
         default:
             logMessage("ERROR: Unknown action: $action");
             echo json_encode([

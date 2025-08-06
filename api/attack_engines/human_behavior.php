@@ -397,6 +397,42 @@ class HumanBehaviorEngine {
                 'form_interaction' => 10,
                 'page_navigation' => 15,
                 'idle' => 20
+            ],
+            'human' => [
+                'scroll' => 35,
+                'click' => 22,
+                'form_interaction' => 12,
+                'page_navigation' => 18,
+                'wait_for_selector' => 8,
+                'idle' => 5
+            ],
+            'mobile' => [
+                'scroll' => 45,
+                'click' => 30,
+                'form_interaction' => 15,
+                'page_navigation' => 8,
+                'idle' => 2
+            ],
+            'reader' => [
+                'scroll' => 60,
+                'click' => 8,
+                'form_interaction' => 2,
+                'page_navigation' => 10,
+                'idle' => 20
+            ],
+            'scanner' => [
+                'scroll' => 15,
+                'click' => 40,
+                'form_interaction' => 35,
+                'page_navigation' => 8,
+                'idle' => 2
+            ],
+            'random' => [
+                'scroll' => rand(10, 50),
+                'click' => rand(10, 40),
+                'form_interaction' => rand(5, 35),
+                'page_navigation' => rand(5, 25),
+                'idle' => rand(2, 15)
             ]
         ];
         
@@ -560,6 +596,66 @@ class HumanBehaviorEngine {
                 'click_probability' => 0.3,
                 'form_probability' => 0.1,
                 'navigation_probability' => 0.2
+            ],
+            'human' => [
+                'avg_session_duration' => 150,
+                'actions_per_minute' => 2.5,
+                'scroll_probability' => 0.85,
+                'click_probability' => 0.55,
+                'form_probability' => 0.25,
+                'navigation_probability' => 0.35,
+                'wait_for_selector' => 0.4,
+                'typing_delay_ms' => [200, 800],
+                'mouse_movement' => 0.7,
+                'reading_pause' => 0.6
+            ],
+            'mobile' => [
+                'avg_session_duration' => 90,
+                'actions_per_minute' => 4,
+                'scroll_probability' => 0.95,
+                'click_probability' => 0.8,
+                'form_probability' => 0.4,
+                'navigation_probability' => 0.6,
+                'touch_events' => 0.9,
+                'swipe_gestures' => 0.7,
+                'orientation_change' => 0.1,
+                'zoom_events' => 0.2
+            ],
+            'reader' => [
+                'avg_session_duration' => 240,
+                'actions_per_minute' => 1.2,
+                'scroll_probability' => 0.95,
+                'click_probability' => 0.2,
+                'form_probability' => 0.05,
+                'navigation_probability' => 0.15,
+                'reading_time_multiplier' => 3.0,
+                'text_selection' => 0.3,
+                'bookmark_probability' => 0.1,
+                'back_button_usage' => 0.4
+            ],
+            'scanner' => [
+                'avg_session_duration' => 45,
+                'actions_per_minute' => 12,
+                'scroll_probability' => 0.4,
+                'click_probability' => 0.95,
+                'form_probability' => 0.8,
+                'navigation_probability' => 0.9,
+                'rapid_clicking' => 0.8,
+                'form_auto_fill' => 0.9,
+                'tab_switching' => 0.6,
+                'search_usage' => 0.7
+            ],
+            'random' => [
+                'avg_session_duration' => rand(30, 300),
+                'actions_per_minute' => rand(1, 15),
+                'scroll_probability' => rand(10, 100) / 100,
+                'click_probability' => rand(10, 100) / 100,
+                'form_probability' => rand(5, 90) / 100,
+                'navigation_probability' => rand(10, 90) / 100,
+                'chaos_mode' => true,
+                'random_delays' => [100, 5000],
+                'unpredictable_actions' => 0.3,
+                'pattern_switching' => 0.2
             ]
         ];
     }

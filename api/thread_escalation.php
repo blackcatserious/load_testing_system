@@ -19,7 +19,7 @@ class ThreadEscalation {
     public function getDefaultConfig() {
         return [
             'min_threads' => 1,
-            'max_threads' => 500,
+            'max_threads' => PHP_INT_MAX,
             'escalation_factor' => 1.5,
             'deescalation_factor' => 0.8,
             'resistance_threshold_low' => 2,
@@ -164,10 +164,7 @@ class ThreadEscalation {
     private function escalateWithStealth($currentThreads, $resistanceLevel, $reason) {
         $escalationFactor = $this->config['escalation_factor'] * 0.9;
         
-        $newThreads = min(
-            round($currentThreads * $escalationFactor),
-            round($this->config['max_threads'] * 0.7)
-        );
+        $newThreads = round($currentThreads * $escalationFactor);
         
         return [
             'action' => 'escalate_with_stealth',

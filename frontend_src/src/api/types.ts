@@ -109,6 +109,33 @@ export interface LiveMetrics {
   anti_detect?: AntiDetectStats;
   waf_detection?: WAFStats;
   adaptive_methods?: AdaptiveMethodStats;
+  stealth_stats?: {
+    proxy_rotations: number;
+    active_proxies: number;
+    ja3_rotations: number;
+    ja3_pool_size: number;
+    ua_rotations: number;
+    ua_variants: number;
+    tls_rotations: number;
+    tls_configs: number;
+    cookie_rotations: number;
+    active_sessions: number;
+  };
+  target_metrics?: {
+    [target: string]: {
+      success_rate: number;
+      rps: number;
+      avg_latency: number;
+      status_codes?: {
+        [key: string]: number;
+      };
+      success_detection?: {
+        target_disabled: boolean;
+        protection_rate: number;
+        escalation_decision: string;
+      };
+    };
+  };
 }
 
 export interface Run {

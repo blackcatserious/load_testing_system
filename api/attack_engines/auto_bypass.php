@@ -29,7 +29,7 @@ class AutoBypassEngine {
             'header_spoofing' => true,
             'ml_threshold' => 0.7,
             'escalation_factor' => 1.5,
-            'max_escalation_threads' => 500,
+            'max_escalation_threads' => PHP_INT_MAX,
             'resistance_detection' => true,
             'auto_technique_switching' => true
         ];
@@ -108,7 +108,7 @@ class AutoBypassEngine {
             }
             
             if ($this->shouldEscalate($errorCodes, $requestCount)) {
-                $currentThreads = min($currentThreads * $this->config['escalation_factor'], $this->config['max_escalation_threads']);
+                $currentThreads = $currentThreads * $this->config['escalation_factor'];
                 $this->logMessage("Auto-escalated threads to $currentThreads for $target");
             }
             
@@ -542,7 +542,7 @@ class AutoBypassEngine {
     
     private function escalateThreads($currentThreads, $resistanceLevel) {
         $escalationMultiplier = 1 + ($resistanceLevel * 0.1);
-        $newThreads = min($currentThreads * $escalationMultiplier, $this->config['max_escalation_threads']);
+        $newThreads = $currentThreads * $escalationMultiplier;
         
         return round($newThreads);
     }

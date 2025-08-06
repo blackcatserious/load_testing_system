@@ -40,7 +40,11 @@ class Database {
             behavior_profile_id TEXT,
             started_at TEXT,
             finished_at TEXT,
-            status TEXT
+            status TEXT,
+            unlimited_mode BOOLEAN DEFAULT 0,
+            stealth_profile TEXT DEFAULT 'medium',
+            attack_method TEXT DEFAULT 'standard',
+            proxy_profile TEXT DEFAULT 'rotating'
         );
         
         CREATE TABLE IF NOT EXISTS runs (
@@ -50,6 +54,13 @@ class Database {
             status TEXT,
             started_at TEXT,
             finished_at TEXT,
+            target_status TEXT DEFAULT 'active',
+            target_url TEXT,
+            stealth_session_id TEXT,
+            success_detection_triggered BOOLEAN DEFAULT 0,
+            permanent_failure_achieved BOOLEAN DEFAULT 0,
+            protection_rate REAL DEFAULT 0.0,
+            escalation_count INTEGER DEFAULT 0,
             FOREIGN KEY (group_id) REFERENCES groups(group_id)
         );
         
@@ -86,8 +97,13 @@ class Database {
             response_time INTEGER,
             success_count INTEGER,
             failure_count INTEGER,
+            consecutive_failures INTEGER DEFAULT 0,
             country TEXT,
-            provider TEXT
+            provider TEXT,
+            health_check_passed BOOLEAN DEFAULT 0,
+            tls_handshake_success BOOLEAN DEFAULT 0,
+            last_used TEXT,
+            rotation_count INTEGER DEFAULT 0
         );
         
         CREATE TABLE IF NOT EXISTS attack_methods (
@@ -102,24 +118,54 @@ class Database {
         
         CREATE TABLE IF NOT EXISTS stealth_sessions (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
+            session_id TEXT UNIQUE,
             group_id TEXT,
+            run_id TEXT,
             stealth_profile_id INTEGER,
             proxy_rotations INTEGER DEFAULT 0,
             ua_rotations INTEGER DEFAULT 0,
             tls_rotations INTEGER DEFAULT 0,
+            ja3_rotations INTEGER DEFAULT 0,
+            cookie_rotations INTEGER DEFAULT 0,
             detection_events INTEGER DEFAULT 0,
+            parent_session TEXT,
+            stealth_config TEXT,
+            rotation_settings TEXT,
             started_at TEXT,
             FOREIGN KEY (group_id) REFERENCES groups(group_id),
+            FOREIGN KEY (run_id) REFERENCES runs(run_id),
             FOREIGN KEY (stealth_profile_id) REFERENCES stealth_profiles(id)
         );
         
         CREATE TABLE IF NOT EXISTS escalation_events (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             group_id TEXT NOT NULL,
+            run_id TEXT,
             resistance_level INTEGER NOT NULL,
             recommendation TEXT,
             error_codes TEXT,
-            created_at TEXT DEFAULT CURRENT_TIMESTAMP
+            escalation_decision TEXT,
+            thread_count INTEGER,
+            created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY (run_id) REFERENCES runs(run_id)
+        );
+        
+        CREATE TABLE IF NOT EXISTS success_detection_events (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            run_id TEXT NOT NULL,
+            group_id TEXT NOT NULL,
+            target_url TEXT NOT NULL,
+            event_type TEXT NOT NULL,
+            detection_criteria TEXT NOT NULL,
+            success_metrics TEXT,
+            permanent_failure_rate REAL,
+            latency_threshold_exceeded BOOLEAN DEFAULT 0,
+            zero_byte_responses BOOLEAN DEFAULT 0,
+            protection_activated BOOLEAN DEFAULT 0,
+            escalation_successful BOOLEAN DEFAULT 0,
+            created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY (run_id) REFERENCES runs(run_id),
+            FOREIGN KEY (group_id) REFERENCES groups(group_id)
         );";
         
         $this->pdo->exec($sql);
@@ -145,13 +191,15 @@ class Database {
     }
     
     public function insertRun($runId, $groupId, $target) {
-        $stmt = $this->pdo->prepare("INSERT INTO runs (run_id, group_id, target, status, started_at) VALUES (?, ?, ?, ?, ?)");
+        $stmt = $this->pdo->prepare("INSERT INTO runs (run_id, group_id, target, target_url, status, started_at, target_status) VALUES (?, ?, ?, ?, ?, ?, ?)");
         return $stmt->execute([
             $runId,
             $groupId,
             $target,
+            $target,
             'running',
-            date('Y-m-d H:i:s')
+            date('Y-m-d H:i:s'),
+            'active'
         ]);
     }
     
@@ -274,6 +322,28 @@ class Database {
         return $stmt->fetchAll();
     }
     
+    public function removeDeadProxy($proxyId) {
+        $stmt = $this->pdo->prepare("DELETE FROM proxy_pool WHERE id = ?");
+        return $stmt->execute([$proxyId]);
+    }
+    
+    public function getProxyRotationPool($limit = 10000) {
+        $stmt = $this->pdo->prepare("SELECT * FROM proxy_pool WHERE status = 'alive' AND failure_count < 3 ORDER BY RANDOM() LIMIT ?");
+        $stmt->execute([$limit]);
+        return $stmt->fetchAll();
+    }
+    
+    public function markProxyAsUsed($proxyId) {
+        $stmt = $this->pdo->prepare("UPDATE proxy_pool SET success_count = success_count + 1, last_check = ? WHERE id = ?");
+        return $stmt->execute([date('Y-m-d H:i:s'), $proxyId]);
+    }
+    
+    public function getProxyPoolSize() {
+        $stmt = $this->pdo->prepare("SELECT COUNT(*) as total, SUM(CASE WHEN status = 'alive' THEN 1 ELSE 0 END) as alive FROM proxy_pool");
+        $stmt->execute();
+        return $stmt->fetch();
+    }
+    
     public function insertAttackMethod($methodName, $engineClass, $configSchema, $description) {
         $stmt = $this->pdo->prepare("INSERT INTO attack_methods (method_name, engine_class, config_schema, description, created_at) VALUES (?, ?, ?, ?, ?)");
         return $stmt->execute([
@@ -297,11 +367,15 @@ class Database {
         return $stmt->fetchAll();
     }
     
-    public function insertStealthSession($groupId, $stealthProfileId) {
-        $stmt = $this->pdo->prepare("INSERT INTO stealth_sessions (group_id, stealth_profile_id, started_at) VALUES (?, ?, ?)");
+    public function insertStealthSession($sessionId, $runId, $stealthConfig, $groupId = null, $stealthProfileId = null) {
+        $stmt = $this->pdo->prepare("INSERT INTO stealth_sessions (session_id, group_id, run_id, stealth_profile_id, stealth_config, rotation_settings, started_at) VALUES (?, ?, ?, ?, ?, ?, ?)");
         return $stmt->execute([
+            $sessionId,
             $groupId,
+            $runId,
             $stealthProfileId,
+            json_encode($stealthConfig),
+            json_encode($stealthConfig['rotation_settings'] ?? []),
             date('Y-m-d H:i:s')
         ]);
     }
@@ -332,6 +406,56 @@ class Database {
         $stmt = $this->pdo->prepare("SELECT AVG(resistance_level) as avg_resistance, MAX(resistance_level) as max_resistance, COUNT(*) as total_events FROM escalation_events WHERE group_id = ?");
         $stmt->execute([$groupId]);
         return $stmt->fetch();
+    }
+    
+    public function insertSuccessDetectionEvent($runId, $groupId, $targetUrl, $eventType, $detectionCriteria, $successMetrics = []) {
+        $stmt = $this->pdo->prepare("INSERT INTO success_detection_events (run_id, group_id, target_url, event_type, detection_criteria, success_metrics, permanent_failure_rate, latency_threshold_exceeded, zero_byte_responses, protection_activated, escalation_successful, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
+        return $stmt->execute([
+            $runId,
+            $groupId,
+            $targetUrl,
+            $eventType,
+            $detectionCriteria,
+            json_encode($successMetrics),
+            $successMetrics['permanent_failure_rate'] ?? 0.0,
+            $successMetrics['latency_threshold_exceeded'] ?? false,
+            $successMetrics['zero_byte_responses'] ?? false,
+            $successMetrics['protection_activated'] ?? false,
+            $successMetrics['escalation_successful'] ?? false,
+            date('Y-m-d H:i:s')
+        ]);
+    }
+    
+    public function updateRunTargetStatus($runId, $targetStatus, $successDetection = false, $permanentFailure = false) {
+        $stmt = $this->pdo->prepare("UPDATE runs SET target_status = ?, success_detection_triggered = ?, permanent_failure_achieved = ? WHERE run_id = ?");
+        return $stmt->execute([$targetStatus, $successDetection, $permanentFailure, $runId]);
+    }
+    
+    public function updateProxyConsecutiveFailures($proxyId, $failures) {
+        $stmt = $this->pdo->prepare("UPDATE proxy_pool SET consecutive_failures = ?, last_check = ? WHERE id = ?");
+        return $stmt->execute([$failures, date('Y-m-d H:i:s'), $proxyId]);
+    }
+    
+    public function removeProxiesWithConsecutiveFailures($threshold = 3) {
+        $stmt = $this->pdo->prepare("DELETE FROM proxy_pool WHERE consecutive_failures >= ?");
+        return $stmt->execute([$threshold]);
+    }
+    
+    public function getSuccessDetectionHistory($groupId, $limit = 50) {
+        $stmt = $this->pdo->prepare("SELECT * FROM success_detection_events WHERE group_id = ? ORDER BY created_at DESC LIMIT ?");
+        $stmt->execute([$groupId, $limit]);
+        return $stmt->fetchAll();
+    }
+    
+    public function getDisabledTargetsCount($groupId) {
+        $stmt = $this->pdo->prepare("SELECT COUNT(*) as count FROM runs WHERE group_id = ? AND target_status = 'disabled'");
+        $stmt->execute([$groupId]);
+        return $stmt->fetch()['count'];
+    }
+    
+    public function updateStealthSessionRotations($sessionId, $proxyRotations = 0, $uaRotations = 0, $tlsRotations = 0, $ja3Rotations = 0, $cookieRotations = 0) {
+        $stmt = $this->pdo->prepare("UPDATE stealth_sessions SET proxy_rotations = proxy_rotations + ?, ua_rotations = ua_rotations + ?, tls_rotations = tls_rotations + ?, ja3_rotations = ja3_rotations + ?, cookie_rotations = cookie_rotations + ? WHERE session_id = ?");
+        return $stmt->execute([$proxyRotations, $uaRotations, $tlsRotations, $ja3Rotations, $cookieRotations, $sessionId]);
     }
 }
 ?>

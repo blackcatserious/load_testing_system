@@ -217,6 +217,23 @@ try {
                 ]);
                 break;
                 
+            case 'import_bulk':
+                $sources = $input['sources'] ?? [];
+                $maxProxies = $input['max_proxies'] ?? 1000000;
+                
+                if (empty($sources)) {
+                    throw new Exception('At least one proxy source is required');
+                }
+                
+                $result = importProxiesFromMultipleSources($db, $sources, $maxProxies);
+                echo json_encode($result);
+                break;
+                
+            case 'cleanup_dead':
+                $result = cleanupDeadProxies($db);
+                echo json_encode($result);
+                break;
+                
             default:
                 throw new Exception('Invalid action');
         }
@@ -251,29 +268,28 @@ function performHealthCheck($db, $proxyId) {
     $startTime = microtime(true);
     $status = 'dead';
     $responseTime = 0;
+    $tlsHandshakeSuccess = false;
     
     try {
         $proxyUrl = "{$proxy['protocol']}://{$proxy['ip_address']}:{$proxy['port']}";
-        $testUrl = 'http://httpbin.org/ip';
         
-        $context = stream_context_create([
-            'http' => [
-                'proxy' => $proxyUrl,
-                'request_fulluri' => true,
-                'timeout' => 5,
-                'method' => 'GET',
-                'header' => "User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36\r\n"
-            ]
-        ]);
+        $headTestSuccess = performHeadTest($proxyUrl);
         
-        $response = @file_get_contents($testUrl, false, $context);
+        if ($headTestSuccess) {
+            $tlsHandshakeSuccess = performTLSHandshakeTest($proxy['ip_address'], $proxy['port']);
+        }
+        
         $responseTime = round((microtime(true) - $startTime) * 1000);
         
-        if ($response !== false && $responseTime < 500) {
+        if ($headTestSuccess && $tlsHandshakeSuccess && $responseTime < 10000) {
             $status = 'alive';
-            logProxyStatus("ALIVE: {$proxy['ip_address']}:{$proxy['port']} - Response time: {$responseTime}ms");
+            logProxyStatus("ALIVE: {$proxy['ip_address']}:{$proxy['port']} - HEAD: OK, TLS: OK, Response time: {$responseTime}ms");
         } else {
-            logProxyStatus("DEAD: {$proxy['ip_address']}:{$proxy['port']} - Response time: {$responseTime}ms");
+            $reasons = [];
+            if (!$headTestSuccess) $reasons[] = 'HEAD_FAILED';
+            if (!$tlsHandshakeSuccess) $reasons[] = 'TLS_FAILED';
+            if ($responseTime >= 10000) $reasons[] = 'TIMEOUT';
+            logProxyStatus("DEAD: {$proxy['ip_address']}:{$proxy['port']} - Reasons: " . implode(', ', $reasons) . " - Response time: {$responseTime}ms");
         }
         
     } catch (Exception $e) {
@@ -281,15 +297,96 @@ function performHealthCheck($db, $proxyId) {
         logProxyStatus("DEAD: {$proxy['ip_address']}:{$proxy['port']} - Error: " . $e->getMessage());
     }
     
-    $db->updateProxyStatus($proxyId, $status, $responseTime);
+    $shouldRemove = false;
+    if ($status === 'dead') {
+        $consecutiveFailures = $proxy['failure_count'] + 1;
+        if ($consecutiveFailures >= 3) {
+            $shouldRemove = true;
+            logProxyStatus("REMOVING: {$proxy['ip_address']}:{$proxy['port']} - 3 consecutive failures reached");
+        }
+    }
+    
+    if ($shouldRemove) {
+        $db->removeDeadProxy($proxyId);
+    } else {
+        $db->updateProxyStatus($proxyId, $status, $responseTime);
+    }
     
     return [
         'proxy_id' => $proxyId,
         'ip_address' => $proxy['ip_address'],
         'port' => $proxy['port'],
         'status' => $status,
-        'response_time' => $responseTime
+        'response_time' => $responseTime,
+        'head_test' => $headTestSuccess,
+        'tls_handshake' => $tlsHandshakeSuccess,
+        'removed' => $shouldRemove
     ];
+}
+
+function performHeadTest($proxyUrl) {
+    try {
+        $testUrl = 'https://httpbin.org/status/200';
+        
+        $context = stream_context_create([
+            'http' => [
+                'proxy' => $proxyUrl,
+                'request_fulluri' => true,
+                'timeout' => 8,
+                'method' => 'HEAD',
+                'header' => "User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36\r\n" .
+                           "Accept: */*\r\n" .
+                           "Connection: close\r\n"
+            ]
+        ]);
+        
+        $response = @file_get_contents($testUrl, false, $context);
+        
+        if (isset($http_response_header)) {
+            $statusLine = $http_response_header[0];
+            if (strpos($statusLine, '200') !== false) {
+                return true;
+            }
+        }
+        
+        return false;
+        
+    } catch (Exception $e) {
+        return false;
+    }
+}
+
+function performTLSHandshakeTest($ipAddress, $port) {
+    try {
+        $context = stream_context_create([
+            'ssl' => [
+                'verify_peer' => false,
+                'verify_peer_name' => false,
+                'allow_self_signed' => true,
+                'capture_peer_cert' => true
+            ]
+        ]);
+        
+        $socket = @stream_socket_client(
+            "ssl://{$ipAddress}:{$port}",
+            $errno,
+            $errstr,
+            5,
+            STREAM_CLIENT_CONNECT,
+            $context
+        );
+        
+        if ($socket) {
+            $peerCert = stream_context_get_params($socket);
+            fclose($socket);
+            return isset($peerCert['options']['ssl']['peer_certificate']);
+        }
+        
+        return false;
+        
+    } catch (Exception $e) {
+        return false;
+    }
 }
 
 function performBulkHealthCheck($db, $maxProxies = 1000, $timeout = 5) {
@@ -436,5 +533,97 @@ function generateXForwardedForHeaders($realIp = null) {
 
 function generateRandomIP() {
     return rand(1, 254) . '.' . rand(1, 254) . '.' . rand(1, 254) . '.' . rand(1, 254);
+}
+
+function importProxiesFromMultipleSources($db, $sources, $maxProxies = 1000000) {
+    $totalImported = 0;
+    $totalFailed = 0;
+    $results = [];
+    
+    foreach ($sources as $source) {
+        if ($totalImported >= $maxProxies) {
+            break;
+        }
+        
+        try {
+            $remaining = $maxProxies - $totalImported;
+            $result = importProxiesFromAPI($db, $source['url'], $source['api_key'] ?? null, $source['format'] ?? 'json');
+            
+            $imported = min($result['imported'], $remaining);
+            $totalImported += $imported;
+            $totalFailed += $result['failed'];
+            
+            $results[] = [
+                'source' => $source['url'],
+                'imported' => $imported,
+                'failed' => $result['failed']
+            ];
+            
+            logMessage("Bulk import from {$source['url']}: $imported imported, {$result['failed']} failed");
+            
+        } catch (Exception $e) {
+            $results[] = [
+                'source' => $source['url'],
+                'imported' => 0,
+                'failed' => 1,
+                'error' => $e->getMessage()
+            ];
+            $totalFailed++;
+            logMessage("Bulk import failed for {$source['url']}: " . $e->getMessage());
+        }
+    }
+    
+    logMessage("Bulk import completed: $totalImported total imported, $totalFailed total failed from " . count($sources) . " sources");
+    
+    return [
+        'success' => true,
+        'total_imported' => $totalImported,
+        'total_failed' => $totalFailed,
+        'sources_processed' => count($sources),
+        'results' => $results,
+        'message' => "Imported $totalImported proxies from " . count($sources) . " sources, $totalFailed failed"
+    ];
+}
+
+function cleanupDeadProxies($db) {
+    $pdo = $db->getPDO();
+    
+    $stmt = $pdo->prepare("DELETE FROM proxy_pool WHERE failure_count >= 3 AND status = 'dead'");
+    $stmt->execute();
+    $removedCount = $stmt->rowCount();
+    
+    $stmt = $pdo->prepare("DELETE FROM proxy_pool WHERE status = 'dead' AND datetime(last_check) < datetime('now', '-24 hours')");
+    $stmt->execute();
+    $expiredCount = $stmt->rowCount();
+    
+    $totalRemoved = $removedCount + $expiredCount;
+    
+    logMessage("Cleanup completed: $removedCount consecutive failures, $expiredCount expired, $totalRemoved total removed");
+    logProxyStatus("CLEANUP: Removed $totalRemoved dead proxies ($removedCount consecutive failures, $expiredCount expired)");
+    
+    return [
+        'success' => true,
+        'removed_consecutive_failures' => $removedCount,
+        'removed_expired' => $expiredCount,
+        'total_removed' => $totalRemoved,
+        'message' => "Removed $totalRemoved dead proxies from pool"
+    ];
+}
+
+function getProxyRotationPool($db, $limit = 10000) {
+    $pdo = $db->getPDO();
+    $stmt = $pdo->prepare("SELECT * FROM proxy_pool WHERE status = 'alive' AND failure_count < 3 ORDER BY RANDOM() LIMIT ?");
+    $stmt->execute([$limit]);
+    $proxies = $stmt->fetchAll();
+    
+    logMessage("Retrieved " . count($proxies) . " proxies for rotation pool");
+    
+    return $proxies;
+}
+
+function markProxyAsUsed($db, $proxyId) {
+    $pdo = $db->getPDO();
+    $stmt = $pdo->prepare("UPDATE proxy_pool SET success_count = success_count + 1, last_check = ? WHERE id = ?");
+    return $stmt->execute([date('Y-m-d H:i:s'), $proxyId]);
 }
 ?>

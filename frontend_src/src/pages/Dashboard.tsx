@@ -26,6 +26,7 @@ const Dashboard: React.FC = () => {
   const [duration, setDuration] = useState(3600);
   const [requestDelay, setRequestDelay] = useState(100);
   const [targetCount, setTargetCount] = useState(3);
+  const [unlimitedMode, setUnlimitedMode] = useState(false);
 
   useEffect(() => {
     const fetchGroupRuns = async () => {
@@ -172,14 +173,30 @@ const Dashboard: React.FC = () => {
 
       {/* Launch Parameters Panel */}
       <div className="bg-white p-6 rounded-lg shadow-sm border border-gray-200 mb-6">
-        <h3 className="text-lg font-semibold text-gray-900 mb-4">Launch Parameters</h3>
+        <div className="flex justify-between items-center mb-4">
+          <h3 className="text-lg font-semibold text-gray-900">Launch Parameters</h3>
+          <div className="flex items-center">
+            <span className="text-sm font-medium text-gray-700 mr-2">Unlimited Mode</span>
+            <label className="relative inline-flex items-center cursor-pointer">
+              <input 
+                type="checkbox" 
+                checked={unlimitedMode} 
+                onChange={(e) => setUnlimitedMode(e.target.checked)}
+                className="sr-only peer" 
+              />
+              <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
+            </label>
+          </div>
+        </div>
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">Threads</label>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              Threads {unlimitedMode && <span className="text-red-500 text-xs">(UNLIMITED)</span>}
+            </label>
             <input
               type="range"
               min="1"
-              max="500"
+              max={unlimitedMode ? "100000" : "500"}
               value={threads}
               onChange={(e) => setThreads(Number(e.target.value))}
               className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer"
@@ -187,15 +204,17 @@ const Dashboard: React.FC = () => {
             <div className="flex justify-between text-xs text-gray-500 mt-1">
               <span>1</span>
               <span className="font-medium">{threads}</span>
-              <span>500</span>
+              <span>{unlimitedMode ? "100K" : "500"}</span>
             </div>
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">Duration (seconds)</label>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              Duration (seconds) {unlimitedMode && <span className="text-red-500 text-xs">(UNLIMITED)</span>}
+            </label>
             <input
               type="range"
               min="30"
-              max="10800"
+              max={unlimitedMode ? "2592000" : "10800"}
               value={duration}
               onChange={(e) => setDuration(Number(e.target.value))}
               className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer"
@@ -203,7 +222,7 @@ const Dashboard: React.FC = () => {
             <div className="flex justify-between text-xs text-gray-500 mt-1">
               <span>30s</span>
               <span className="font-medium">{Math.floor(duration / 3600)}h {Math.floor((duration % 3600) / 60)}m</span>
-              <span>3h</span>
+              <span>{unlimitedMode ? "30d" : "3h"}</span>
             </div>
           </div>
           <div>
@@ -223,11 +242,13 @@ const Dashboard: React.FC = () => {
             </div>
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">Target Count</label>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              Target Count {unlimitedMode && <span className="text-red-500 text-xs">(UNLIMITED)</span>}
+            </label>
             <input
               type="number"
               min="1"
-              max="50"
+              max={unlimitedMode ? "10000" : "50"}
               value={targetCount}
               onChange={(e) => setTargetCount(Number(e.target.value))}
               className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
@@ -280,8 +301,101 @@ const Dashboard: React.FC = () => {
             <div className="ml-3">
               <p className="text-xs font-medium text-gray-600">p99 Latency</p>
               <p className="text-xl font-bold text-gray-900">{Math.round((metrics?.avg_latency || 0) * 2.5)}ms</p>
+              {metrics && metrics.status_codes && ((metrics.status_codes['403'] || 0) > 0 || (metrics.status_codes['429'] || 0) > 0) && (
+                <div className="inline-flex px-2 py-1 text-xs bg-yellow-100 text-yellow-800 rounded mt-1">
+                  Protection Activated
+                </div>
+              )}
             </div>
           </div>
+        </div>
+      </div>
+
+      {/* Stealth Rotation Stats Panel */}
+      <div className="bg-white p-6 rounded-lg shadow-sm border border-gray-200 mb-6">
+        <h3 className="text-lg font-semibold text-gray-900 mb-4">Stealth Rotation Stats</h3>
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
+          <div className="bg-gray-50 p-4 rounded-lg">
+            <div className="flex items-center justify-between">
+              <span className="text-sm font-medium text-gray-600">Proxy Rotations</span>
+              <span className="text-lg font-bold text-blue-600">{metrics?.stealth_stats?.proxy_rotations || 0}</span>
+            </div>
+            <div className="text-xs text-gray-500 mt-1">Active: {metrics?.stealth_stats?.active_proxies || 0}</div>
+          </div>
+          <div className="bg-gray-50 p-4 rounded-lg">
+            <div className="flex items-center justify-between">
+              <span className="text-sm font-medium text-gray-600">JA3 Fingerprints</span>
+              <span className="text-lg font-bold text-green-600">{metrics?.stealth_stats?.ja3_rotations || 0}</span>
+            </div>
+            <div className="text-xs text-gray-500 mt-1">Pool: {metrics?.stealth_stats?.ja3_pool_size || 0}</div>
+          </div>
+          <div className="bg-gray-50 p-4 rounded-lg">
+            <div className="flex items-center justify-between">
+              <span className="text-sm font-medium text-gray-600">User-Agent</span>
+              <span className="text-lg font-bold text-purple-600">{metrics?.stealth_stats?.ua_rotations || 0}</span>
+            </div>
+            <div className="text-xs text-gray-500 mt-1">Variants: {metrics?.stealth_stats?.ua_variants || 0}</div>
+          </div>
+          <div className="bg-gray-50 p-4 rounded-lg">
+            <div className="flex items-center justify-between">
+              <span className="text-sm font-medium text-gray-600">TLS Profiles</span>
+              <span className="text-lg font-bold text-orange-600">{metrics?.stealth_stats?.tls_rotations || 0}</span>
+            </div>
+            <div className="text-xs text-gray-500 mt-1">Configs: {metrics?.stealth_stats?.tls_configs || 0}</div>
+          </div>
+          <div className="bg-gray-50 p-4 rounded-lg">
+            <div className="flex items-center justify-between">
+              <span className="text-sm font-medium text-gray-600">Cookie Sessions</span>
+              <span className="text-lg font-bold text-red-600">{metrics?.stealth_stats?.cookie_rotations || 0}</span>
+            </div>
+            <div className="text-xs text-gray-500 mt-1">Active: {metrics?.stealth_stats?.active_sessions || 0}</div>
+          </div>
+        </div>
+      </div>
+
+      {/* Real-time Success Rate Chart */}
+      <div className="bg-white p-6 rounded-lg shadow-sm border border-gray-200 mb-6">
+        <h3 className="text-lg font-semibold text-gray-900 mb-4">Real-time Success Rate per Target</h3>
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          {metrics?.target_metrics && Object.entries(metrics.target_metrics).map(([target, targetData]: [string, any]) => (
+            <div key={target} className="border border-gray-200 rounded-lg p-4">
+              <div className="flex items-center justify-between mb-2">
+                <h4 className="font-medium text-gray-900 truncate">{target}</h4>
+                {targetData.success_detection?.target_disabled && (
+                  <span className="inline-flex px-2 py-1 text-xs bg-red-100 text-red-800 rounded">
+                    DISABLED
+                  </span>
+                )}
+                {(targetData.status_codes?.['403'] > 0 || targetData.status_codes?.['429'] > 0) && (
+                  <span className="inline-flex px-2 py-1 text-xs bg-yellow-100 text-yellow-800 rounded">
+                    Protection Active
+                  </span>
+                )}
+              </div>
+              <div className="space-y-2">
+                <div className="flex justify-between text-sm">
+                  <span>Success Rate:</span>
+                  <span className={`font-medium ${targetData.success_rate > 80 ? 'text-green-600' : targetData.success_rate > 50 ? 'text-yellow-600' : 'text-red-600'}`}>
+                    {targetData.success_rate || 0}%
+                  </span>
+                </div>
+                <div className="w-full bg-gray-200 rounded-full h-2">
+                  <div 
+                    className={`h-2 rounded-full ${targetData.success_rate > 80 ? 'bg-green-500' : targetData.success_rate > 50 ? 'bg-yellow-500' : 'bg-red-500'}`}
+                    style={{ width: `${targetData.success_rate || 0}%` }}
+                  ></div>
+                </div>
+                <div className="text-xs text-gray-500">
+                  RPS: {targetData.rps || 0} | Latency: {targetData.avg_latency || 0}ms
+                </div>
+              </div>
+            </div>
+          ))}
+          {(!metrics?.target_metrics || Object.keys(metrics.target_metrics).length === 0) && (
+            <div className="col-span-full text-center text-gray-500 py-8">
+              No active targets to display
+            </div>
+          )}
         </div>
       </div>
 

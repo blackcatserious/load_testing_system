@@ -35,7 +35,7 @@ class EscalationModes {
             'target_codes' => $params['target_codes'] ?? ['404', '403', '500', '503', '502', '504'],
             'error_threshold' => $params['error_threshold'] ?? 0.5,
             'min_requests' => $params['min_requests'] ?? 100,
-            'max_duration' => $params['max_duration'] ?? 3600,
+            'max_duration' => $params['max_duration'] ?? PHP_INT_MAX,
             'check_interval' => $params['check_interval'] ?? 30,
             'consecutive_errors' => $params['consecutive_errors'] ?? 5,
             'description' => 'Continue testing until sustained HTTP errors are detected'
@@ -47,7 +47,7 @@ class EscalationModes {
             'type' => 'until_524_timeout',
             'timeout_threshold' => $params['timeout_threshold'] ?? 0.3,
             'min_requests' => $params['min_requests'] ?? 50,
-            'max_duration' => $params['max_duration'] ?? 1800,
+            'max_duration' => $params['max_duration'] ?? PHP_INT_MAX,
             'check_interval' => $params['check_interval'] ?? 20,
             'consecutive_timeouts' => $params['consecutive_timeouts'] ?? 3,
             'description' => 'Continue testing until 524 timeout errors indicate server overload'
@@ -57,11 +57,11 @@ class EscalationModes {
     private function configureMaxImpactDuration($params) {
         return [
             'type' => 'max_impact_duration',
-            'max_duration' => $params['max_duration'] ?? 3600,
+            'max_duration' => $params['max_duration'] ?? PHP_INT_MAX,
             'target_impact' => $params['target_impact'] ?? 0.8,
             'impact_metrics' => $params['impact_metrics'] ?? ['error_rate', 'response_time', 'success_rate'],
             'escalation_intervals' => $params['escalation_intervals'] ?? [300, 600, 1200],
-            'max_threads' => $params['max_threads'] ?? 500,
+            'max_threads' => $params['max_threads'] ?? PHP_INT_MAX,
             'description' => 'Run tests for maximum duration with progressive impact escalation'
         ];
     }
@@ -400,7 +400,7 @@ class EscalationModes {
         
         if (isset($continueResult['escalation_needed']) && $continueResult['escalation_needed']) {
             $recommendation['escalation_needed'] = true;
-            $recommendation['new_threads'] = min(($currentMetrics['threads'] ?? 50) * 1.5, $config['max_threads'] ?? 500);
+            $recommendation['new_threads'] = ($currentMetrics['threads'] ?? 50) * 1.5;
             $recommendation['escalation_reason'] = 'insufficient_impact_progress';
         }
         
