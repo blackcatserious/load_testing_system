@@ -93,7 +93,7 @@ class PostSpamEngine {
     }
     
     private function executeBatch($target, $groupId, $profile) {
-        $batchSize = min($this->config['threads'], 20);
+        $batchSize = $this->config['threads'];
         $requests = 0;
         $success = 0;
         $errorCodes = [];

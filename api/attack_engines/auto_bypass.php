@@ -219,7 +219,7 @@ class AutoBypassEngine {
     }
     
     private function executeAdaptiveBatch($target, $groupId, $profile, $technique, $threads) {
-        $batchSize = min($threads, 25);
+        $batchSize = $threads;
         $requests = 0;
         $success = 0;
         $bypasses = 0;

@@ -89,6 +89,10 @@ const Dashboard: React.FC = () => {
                 <option value="tls-jammer">TLS Jammer - SSL/TLS handshake disruption</option>
                 <option value="raw">Raw HTTP - Direct HTTP protocol attacks</option>
                 <option value="fetch">Fetch API - Modern browser-based requests</option>
+                <option value="fetch-retry">Fetch Retry - Persistent retry with exponential backoff</option>
+                <option value="slowloris-js">Slowloris JS - Slow connection exhaustion attacks</option>
+                <option value="headless-flutter">Headless Flutter - Mobile app simulation attacks</option>
+                <option value="browser-mix">Browser Mix - Multi-browser stealth combination</option>
               </select>
               <p className="text-xs text-gray-500 mt-1">
                 {engine === 'playwright' && 'Full browser simulation with JavaScript execution'}
@@ -98,6 +102,10 @@ const Dashboard: React.FC = () => {
                 {engine === 'tls-jammer' && 'SSL/TLS layer disruption attacks'}
                 {engine === 'raw' && 'Direct HTTP protocol implementation'}
                 {engine === 'fetch' && 'Modern fetch API with advanced headers'}
+                {engine === 'fetch-retry' && 'Persistent retry attacks with exponential backoff and stealth rotation'}
+                {engine === 'slowloris-js' && 'Slow connection exhaustion to overwhelm server resources'}
+                {engine === 'headless-flutter' && 'Mobile app simulation with native behavior patterns'}
+                {engine === 'browser-mix' && 'Multi-browser stealth combination for maximum evasion'}
               </p>
             </div>
             

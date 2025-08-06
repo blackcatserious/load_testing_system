@@ -97,7 +97,7 @@ class TLSFloodEngine {
     }
     
     private function executeTLSBatch($target, $groupId, $profile) {
-        $batchSize = min($this->config['threads'], 50);
+        $batchSize = $this->config['threads'];
         $connections = 0;
         $successfulHandshakes = 0;
         $failedHandshakes = 0;

@@ -99,7 +99,7 @@ class HEADFloodEngine {
     }
     
     private function executeHEADBatch($target, $groupId, $profile) {
-        $batchSize = min($this->config['threads'], 30);
+        $batchSize = $this->config['threads'];
         $requests = 0;
         $success = 0;
         $errorCodes = [];

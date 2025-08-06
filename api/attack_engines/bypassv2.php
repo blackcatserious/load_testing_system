@@ -329,7 +329,7 @@ class Bypassv2Engine {
     }
     
     private function executeBypassBatch($target, $groupId, $profile, $wafInfo) {
-        $batchSize = min($this->config['threads'], 15);
+        $batchSize = $this->config['threads'];
         $requests = 0;
         $success = 0;
         $bypasses = 0;

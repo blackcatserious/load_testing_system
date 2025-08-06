@@ -227,7 +227,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     
                     logMessage("Run $runId created with stealth session: $runStealthSessionId for target: $target");
                 
-                $runReport = [
+                    $runReport = [
                     'run_id' => $runId,
                     'group_id' => $groupId,
                     'target' => $target,
@@ -261,6 +261,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $csvData = "run_id,group_id,target,profile_id,threads,duration,engine,behavior_profile_id,stealth_session_id,stealth_profile,attack_method,proxy_profile,started_at,status\n";
                 $csvData .= "$runId,$groupId,$target,$profileId,$threads,$duration,$engine,$behaviorProfileId," . $stealthConfigs[$runId]['stealth_session_id'] . ",$stealthProfile,$attackMethod,$proxyProfile," . date('Y-m-d H:i:s') . ",running\n";
                 file_put_contents($csvFile, $csvData);
+                }
             }
             
             $groupReport = [
