@@ -8,12 +8,25 @@ interface Target {
   status: 'active' | 'inactive' | 'testing';
   last_tested: string;
   success_rate: number;
+  attack_method?: string;
+  engine?: string;
+  proxy_profile?: string;
+  stealth_profile?: string;
 }
 
 const Targets: React.FC = () => {
   const [targets, setTargets] = useState<Target[]>([]);
-  const [newTarget, setNewTarget] = useState({ label: '', url: '', tags: '' });
+  const [newTarget, setNewTarget] = useState({ 
+    label: '', 
+    url: '', 
+    tags: '',
+    attack_method: 'post-spam',
+    engine: 'playwright',
+    proxy_profile: 'rotating',
+    stealth_profile: 'medium'
+  });
   const [isLoading, setIsLoading] = useState(true);
+  const [editingTarget, setEditingTarget] = useState<string | null>(null);
 
   useEffect(() => {
     fetchTargets();
@@ -35,7 +48,11 @@ const Targets: React.FC = () => {
             tags: ['cloudflare', 'nginx'],
             status: 'active',
             last_tested: '2025-08-06T18:14:00Z',
-            success_rate: 95.8
+            success_rate: 95.8,
+            attack_method: 'bypassv2',
+            engine: 'playwright',
+            proxy_profile: 'rotating',
+            stealth_profile: 'high'
           },
           {
             id: 'target_2',
@@ -44,7 +61,11 @@ const Targets: React.FC = () => {
             tags: ['ddos-guard', 'nginx'],
             status: 'testing',
             last_tested: '2025-08-06T17:30:00Z',
-            success_rate: 87.2
+            success_rate: 87.2,
+            attack_method: 'auto-bypass',
+            engine: 'auto-bypass',
+            proxy_profile: 'residential',
+            stealth_profile: 'high'
           },
           {
             id: 'target_3',
@@ -53,7 +74,11 @@ const Targets: React.FC = () => {
             tags: ['test', 'timeout'],
             status: 'inactive',
             last_tested: '2025-08-06T16:45:00Z',
-            success_rate: 12.5
+            success_rate: 12.5,
+            attack_method: 'post-spam',
+            engine: 'socket-spam',
+            proxy_profile: 'static',
+            stealth_profile: 'low'
           }
         ]);
       }
@@ -67,7 +92,11 @@ const Targets: React.FC = () => {
           tags: ['cloudflare', 'nginx'],
           status: 'active',
           last_tested: '2025-08-06T18:14:00Z',
-          success_rate: 95.8
+          success_rate: 95.8,
+          attack_method: 'bypassv2',
+          engine: 'playwright',
+          proxy_profile: 'rotating',
+          stealth_profile: 'high'
         },
         {
           id: 'target_2',
@@ -76,7 +105,11 @@ const Targets: React.FC = () => {
           tags: ['ddos-guard', 'nginx'],
           status: 'testing',
           last_tested: '2025-08-06T17:30:00Z',
-          success_rate: 87.2
+          success_rate: 87.2,
+          attack_method: 'auto-bypass',
+          engine: 'auto-bypass',
+          proxy_profile: 'residential',
+          stealth_profile: 'high'
         },
         {
           id: 'target_3',
@@ -85,7 +118,11 @@ const Targets: React.FC = () => {
           tags: ['test', 'timeout'],
           status: 'inactive',
           last_tested: '2025-08-06T16:45:00Z',
-          success_rate: 12.5
+          success_rate: 12.5,
+          attack_method: 'post-spam',
+          engine: 'socket-spam',
+          proxy_profile: 'static',
+          stealth_profile: 'low'
         }
       ]);
     } finally {
@@ -99,7 +136,11 @@ const Targets: React.FC = () => {
     const target = {
       label: newTarget.label,
       url: newTarget.url,
-      tags: newTarget.tags.split(',').map(tag => tag.trim()).filter(Boolean)
+      tags: newTarget.tags.split(',').map(tag => tag.trim()).filter(Boolean),
+      attack_method: newTarget.attack_method,
+      engine: newTarget.engine,
+      proxy_profile: newTarget.proxy_profile,
+      stealth_profile: newTarget.stealth_profile
     };
 
     try {
@@ -110,7 +151,15 @@ const Targets: React.FC = () => {
       });
 
       if (response.ok) {
-        setNewTarget({ label: '', url: '', tags: '' });
+        setNewTarget({ 
+          label: '', 
+          url: '', 
+          tags: '',
+          attack_method: 'post-spam',
+          engine: 'playwright',
+          proxy_profile: 'rotating',
+          stealth_profile: 'medium'
+        });
         fetchTargets();
       }
     } catch (error) {
@@ -149,7 +198,7 @@ const Targets: React.FC = () => {
         {/* Add New Target */}
         <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6 mb-8">
           <h2 className="text-lg font-semibold text-gray-900 mb-4">Add New Target</h2>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">Label</label>
               <input
@@ -181,6 +230,65 @@ const Targets: React.FC = () => {
               />
             </div>
           </div>
+          
+          {/* Attack Configuration */}
+          <div className="border-t border-gray-200 pt-4">
+            <h3 className="text-md font-medium text-gray-900 mb-3">Attack Configuration</h3>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Attack Method</label>
+                <select 
+                  value={newTarget.attack_method}
+                  onChange={(e) => setNewTarget({ ...newTarget, attack_method: e.target.value })}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                >
+                  <option value="post-spam">POST Spam</option>
+                  <option value="tls-flood">TLS Flood</option>
+                  <option value="head-flood">HEAD Flood</option>
+                  <option value="bypassv2">Bypassv2</option>
+                  <option value="auto-bypass">Auto-BYPASS</option>
+                  <option value="human-scroll">HumanScroll/Click</option>
+                </select>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Engine</label>
+                <select 
+                  value={newTarget.engine}
+                  onChange={(e) => setNewTarget({ ...newTarget, engine: e.target.value })}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                >
+                  <option value="playwright">Playwright</option>
+                  <option value="socket-spam">Socket Spam</option>
+                  <option value="auto-bypass">Auto Bypass</option>
+                </select>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Proxy Profile</label>
+                <select 
+                  value={newTarget.proxy_profile}
+                  onChange={(e) => setNewTarget({ ...newTarget, proxy_profile: e.target.value })}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                >
+                  <option value="rotating">Rotating Proxies</option>
+                  <option value="static">Static IP</option>
+                  <option value="residential">Residential IPs</option>
+                </select>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Stealth Profile</label>
+                <select 
+                  value={newTarget.stealth_profile}
+                  onChange={(e) => setNewTarget({ ...newTarget, stealth_profile: e.target.value })}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                >
+                  <option value="low">Low Detection Risk</option>
+                  <option value="medium">Medium Detection Risk</option>
+                  <option value="high">High Detection Risk</option>
+                </select>
+              </div>
+            </div>
+          </div>
+          
           <div className="mt-4">
             <button
               onClick={handleAddTarget}
@@ -219,6 +327,9 @@ const Targets: React.FC = () => {
                     Tags
                   </th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Configuration
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                     Actions
                   </th>
                 </tr>
@@ -254,8 +365,22 @@ const Targets: React.FC = () => {
                         ))}
                       </div>
                     </td>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <div className="text-xs space-y-1">
+                        <div><span className="font-medium">Method:</span> {target.attack_method || 'post-spam'}</div>
+                        <div><span className="font-medium">Engine:</span> {target.engine || 'playwright'}</div>
+                        <div><span className="font-medium">Proxy:</span> {target.proxy_profile || 'rotating'}</div>
+                        <div><span className="font-medium">Stealth:</span> {target.stealth_profile || 'medium'}</div>
+                      </div>
+                    </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                      <button className="text-blue-600 hover:text-blue-900 mr-3">Test</button>
+                      <button 
+                        onClick={() => setEditingTarget(editingTarget === target.id ? null : target.id)}
+                        className="text-blue-600 hover:text-blue-900 mr-3"
+                      >
+                        {editingTarget === target.id ? 'Save' : 'Configure'}
+                      </button>
+                      <button className="text-green-600 hover:text-green-900 mr-3">Test</button>
                       <button className="text-red-600 hover:text-red-900">Remove</button>
                     </td>
                   </tr>

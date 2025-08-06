@@ -73,6 +73,29 @@ export interface LiveMetrics {
     '403'?: number;
     '429'?: number;
     '524'?: number;
+    'other'?: number;
+  };
+  detailed_codes?: {
+    '200'?: number;
+    '403'?: number;
+    '404'?: number;
+    '429'?: number;
+    '502'?: number;
+    '503'?: number;
+    '524'?: number;
+    'timeout'?: number;
+    'dns'?: number;
+  };
+  escalation?: {
+    status: 'stable' | 'monitoring' | 'escalating';
+    thread_count: number;
+    last_escalation: string;
+    escalation_count: number;
+  };
+  resistance?: {
+    level: 'Low' | 'Medium' | 'High';
+    score: number;
+    trend: 'increasing' | 'decreasing' | 'stable';
   };
   success_count?: number;
   client_error_count?: number;

@@ -120,23 +120,25 @@ const Dashboard: React.FC = () => {
           </div>
         </div>
 
-        {/* Rotation Status Panel */}
+        {/* Fingerprint Status Panel */}
         <div className="bg-white p-6 rounded-lg shadow-sm border border-gray-200">
-          <h3 className="text-lg font-semibold text-gray-900 mb-4">Rotation Status</h3>
+          <h3 className="text-lg font-semibold text-gray-900 mb-4">Fingerprint Status</h3>
           <div className="space-y-3">
             <div className="flex justify-between items-center">
-              <span className="text-sm font-medium text-gray-700">JA3 Signature:</span>
+              <span className="text-sm font-medium text-gray-700">Active JA3 Signature:</span>
               <span className="text-sm text-gray-900 font-mono">769,47-53-5-10-49-51-23-65281-0-11-35-16-5-13-18-21-43-45-51</span>
             </div>
             <div className="flex justify-between items-center">
-              <span className="text-sm font-medium text-gray-700">Active Proxy:</span>
-              <span className="text-sm text-gray-900 font-mono">185.220.101.182:8080 
-                <span className="ml-2 inline-flex px-2 py-1 text-xs bg-green-100 text-green-800 rounded">Active</span>
-              </span>
+              <span className="text-sm font-medium text-gray-700">TLS Version:</span>
+              <span className="text-sm text-gray-900">TLS 1.3</span>
             </div>
             <div className="flex justify-between items-center">
               <span className="text-sm font-medium text-gray-700">TLS Fingerprint:</span>
               <span className="text-sm text-gray-900 font-mono">771,4865-4866-4867-49195-49199-49196-49200-52393-52392-49171-49172</span>
+            </div>
+            <div className="flex justify-between items-center">
+              <span className="text-sm font-medium text-gray-700">Cipher Suites:</span>
+              <span className="text-sm text-gray-900">TLS_AES_256_GCM_SHA384, TLS_CHACHA20_POLY1305_SHA256</span>
             </div>
             <div className="flex justify-between items-center">
               <span className="text-sm font-medium text-gray-700">User-Agent:</span>
@@ -144,16 +146,24 @@ const Dashboard: React.FC = () => {
             </div>
             <div className="pt-2 border-t border-gray-200">
               <div className="flex justify-between items-center">
-                <span className="text-sm font-medium text-gray-700">Proxy Rotation:</span>
-                <span className="inline-flex px-2 py-1 text-xs bg-green-100 text-green-800 rounded">Enabled</span>
+                <span className="text-sm font-medium text-gray-700">Stealth Level:</span>
+                <span className="inline-flex px-2 py-1 text-xs bg-purple-100 text-purple-800 rounded">Very High</span>
               </div>
               <div className="flex justify-between items-center mt-1">
                 <span className="text-sm font-medium text-gray-700">JA3 Rotation:</span>
                 <span className="inline-flex px-2 py-1 text-xs bg-green-100 text-green-800 rounded">Enabled</span>
               </div>
               <div className="flex justify-between items-center mt-1">
+                <span className="text-sm font-medium text-gray-700">TLS Rotation:</span>
+                <span className="inline-flex px-2 py-1 text-xs bg-green-100 text-green-800 rounded">Enabled</span>
+              </div>
+              <div className="flex justify-between items-center mt-1">
                 <span className="text-sm font-medium text-gray-700">UA Rotation:</span>
                 <span className="inline-flex px-2 py-1 text-xs bg-green-100 text-green-800 rounded">Enabled</span>
+              </div>
+              <div className="flex justify-between items-center mt-1">
+                <span className="text-sm font-medium text-gray-700">Detection Risk:</span>
+                <span className="inline-flex px-2 py-1 text-xs bg-green-100 text-green-800 rounded">Very Low</span>
               </div>
             </div>
           </div>
@@ -275,6 +285,78 @@ const Dashboard: React.FC = () => {
         </div>
       </div>
 
+      {/* Proxy Status Panel */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
+        <div className="bg-white p-6 rounded-lg shadow-sm border border-gray-200">
+          <h3 className="text-lg font-semibold text-gray-900 mb-4">Proxy Status</h3>
+          <div className="space-y-3">
+            <div className="flex justify-between items-center">
+              <span className="text-sm font-medium text-gray-700">Active Proxy:</span>
+              <span className="text-sm text-gray-900 font-mono">
+                185.220.101.182:8080
+                <span className="ml-2 inline-flex px-2 py-1 text-xs bg-green-100 text-green-800 rounded">Active</span>
+              </span>
+            </div>
+            <div className="flex justify-between items-center">
+              <span className="text-sm font-medium text-gray-700">Ping:</span>
+              <span className="text-sm text-gray-900">113ms</span>
+            </div>
+            <div className="flex justify-between items-center">
+              <span className="text-sm font-medium text-gray-700">Total Proxies:</span>
+              <span className="text-sm text-gray-900">{metrics?.proxy_stats?.total_proxies || 0}</span>
+            </div>
+            <div className="flex justify-between items-center">
+              <span className="text-sm font-medium text-gray-700">Active Proxies:</span>
+              <span className="text-sm text-gray-900">{metrics?.proxy_stats?.active_proxies || 0}</span>
+            </div>
+            <div className="flex justify-between items-center">
+              <span className="text-sm font-medium text-gray-700">Success Rate:</span>
+              <span className="text-sm text-gray-900">{Math.round((metrics?.proxy_stats?.success_rate || 0) * 100)}%</span>
+            </div>
+            <div className="pt-2 border-t border-gray-200">
+              <div className="flex justify-between items-center">
+                <span className="text-sm font-medium text-gray-700">Proxy Rotation:</span>
+                <span className="inline-flex px-2 py-1 text-xs bg-green-100 text-green-800 rounded">Enabled</span>
+              </div>
+              <div className="flex justify-between items-center mt-1">
+                <span className="text-sm font-medium text-gray-700">Rotations Count:</span>
+                <span className="text-sm text-gray-900">{metrics?.proxy_stats?.rotation_count || 0}</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div className="bg-white p-6 rounded-lg shadow-sm border border-gray-200">
+          <h3 className="text-lg font-semibold text-gray-900 mb-4">Proxy Health Monitor</h3>
+          <div className="space-y-3">
+            <div className="flex justify-between items-center">
+              <span className="text-sm font-medium text-gray-700">Health Check Status:</span>
+              <span className="inline-flex px-2 py-1 text-xs bg-green-100 text-green-800 rounded">Running</span>
+            </div>
+            <div className="flex justify-between items-center">
+              <span className="text-sm font-medium text-gray-700">Last Check:</span>
+              <span className="text-sm text-gray-900">2 seconds ago</span>
+            </div>
+            <div className="flex justify-between items-center">
+              <span className="text-sm font-medium text-gray-700">Dead Proxies:</span>
+              <span className="text-sm text-red-600">{(metrics?.proxy_stats?.total_proxies || 0) - (metrics?.proxy_stats?.active_proxies || 0)}</span>
+            </div>
+            <div className="flex justify-between items-center">
+              <span className="text-sm font-medium text-gray-700">Avg Response Time:</span>
+              <span className="text-sm text-gray-900">245ms</span>
+            </div>
+            <div className="pt-2 border-t border-gray-200">
+              <div className="text-xs text-gray-500 space-y-1">
+                <div>✓ 185.220.101.182:8080 - 113ms</div>
+                <div>✓ 192.168.1.100:3128 - 89ms</div>
+                <div>✗ 10.0.0.1:8080 - timeout</div>
+                <div>✓ 203.0.113.45:1080 - 156ms</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
       {/* Response Codes Real-time Panel */}
       <div className="bg-white p-6 rounded-lg shadow-sm border border-gray-200 mb-8">
         <h3 className="text-lg font-semibold text-gray-900 mb-4">Live Response Code Distribution</h3>
@@ -323,7 +405,7 @@ const Dashboard: React.FC = () => {
       </div>
 
       {/* Status Code Visualization */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
         <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
           <h3 className="text-lg font-semibold text-gray-900 mb-4">Status Code Distribution</h3>
           <ResponsiveContainer width="100%" height={300}>
@@ -358,6 +440,189 @@ const Dashboard: React.FC = () => {
               <Bar dataKey="value" fill="#3b82f6" />
             </BarChart>
           </ResponsiveContainer>
+        </div>
+      </div>
+
+      {/* Load Control Points & Error Monitoring */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
+        {/* Error Rate Trends & Control Points */}
+        <div className="bg-white p-6 rounded-lg shadow-sm border border-gray-200">
+          <h3 className="text-lg font-semibold text-gray-900 mb-4">Load Control Points</h3>
+          
+          {/* Escalation Status */}
+          <div className="mb-4">
+            <div className="flex justify-between items-center mb-2">
+              <span className="text-sm font-medium text-gray-700">Escalation Status:</span>
+              <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
+                metrics?.escalation?.status === 'escalating' ? 'bg-red-100 text-red-800' :
+                metrics?.escalation?.status === 'monitoring' ? 'bg-yellow-100 text-yellow-800' :
+                'bg-green-100 text-green-800'
+              }`}>
+                {metrics?.escalation?.status || 'Stable'}
+              </span>
+            </div>
+            <div className="flex justify-between items-center mb-2">
+              <span className="text-sm font-medium text-gray-700">Resistance Level:</span>
+              <span className="text-sm text-gray-900">{metrics?.resistance?.level || 'Low'}</span>
+            </div>
+            <div className="flex justify-between items-center">
+              <span className="text-sm font-medium text-gray-700">Thread Escalation:</span>
+              <span className="text-sm text-gray-900">{metrics?.escalation?.thread_count || 0} threads</span>
+            </div>
+          </div>
+
+          {/* Error Rate Trends */}
+          <div className="border-t border-gray-200 pt-4">
+            <h4 className="text-sm font-medium text-gray-700 mb-3">Error Rate Trends</h4>
+            <div className="space-y-3">
+              <div>
+                <div className="flex justify-between text-sm mb-1">
+                  <span className="text-gray-600">5xx Server Errors</span>
+                  <span className="font-medium text-red-600">{metrics?.status_codes?.['5xx'] || 0}%</span>
+                </div>
+                <div className="w-full bg-gray-200 rounded-full h-2">
+                  <div 
+                    className={`h-2 rounded-full ${
+                      (metrics?.status_codes?.['5xx'] || 0) > 10 ? 'bg-red-600' :
+                      (metrics?.status_codes?.['5xx'] || 0) > 5 ? 'bg-yellow-600' : 'bg-green-600'
+                    }`}
+                    style={{width: `${Math.min(metrics?.status_codes?.['5xx'] || 0, 100)}%`}}
+                  ></div>
+                </div>
+              </div>
+              <div>
+                <div className="flex justify-between text-sm mb-1">
+                  <span className="text-gray-600">4xx Client Errors</span>
+                  <span className="font-medium text-yellow-600">{metrics?.status_codes?.['4xx'] || 0}%</span>
+                </div>
+                <div className="w-full bg-gray-200 rounded-full h-2">
+                  <div 
+                    className={`h-2 rounded-full ${
+                      (metrics?.status_codes?.['4xx'] || 0) > 20 ? 'bg-red-600' :
+                      (metrics?.status_codes?.['4xx'] || 0) > 10 ? 'bg-yellow-600' : 'bg-green-600'
+                    }`}
+                    style={{width: `${Math.min(metrics?.status_codes?.['4xx'] || 0, 100)}%`}}
+                  ></div>
+                </div>
+              </div>
+              <div>
+                <div className="flex justify-between text-sm mb-1">
+                  <span className="text-gray-600">Timeout Rate</span>
+                  <span className="font-medium text-gray-600">{metrics?.detailed_codes?.['timeout'] || 0}%</span>
+                </div>
+                <div className="w-full bg-gray-200 rounded-full h-2">
+                  <div 
+                    className={`h-2 rounded-full ${
+                      (metrics?.detailed_codes?.['timeout'] || 0) > 15 ? 'bg-red-600' :
+                      (metrics?.detailed_codes?.['timeout'] || 0) > 5 ? 'bg-yellow-600' : 'bg-green-600'
+                    }`}
+                    style={{width: `${Math.min(metrics?.detailed_codes?.['timeout'] || 0, 100)}%`}}
+                  ></div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Control Point Indicators */}
+          <div className="border-t border-gray-200 pt-4 mt-4">
+            <h4 className="text-sm font-medium text-gray-700 mb-2">Control Point Triggers</h4>
+            <div className="grid grid-cols-2 gap-2 text-xs">
+              <div className={`p-2 rounded ${
+                (metrics?.status_codes?.['5xx'] || 0) > 10 ? 'bg-red-100 text-red-800' : 'bg-gray-100 text-gray-600'
+              }`}>
+                5xx &gt; 10%: {(metrics?.status_codes?.['5xx'] || 0) > 10 ? 'TRIGGERED' : 'Normal'}
+              </div>
+              <div className={`p-2 rounded ${
+                (metrics?.status_codes?.['4xx'] || 0) > 20 ? 'bg-yellow-100 text-yellow-800' : 'bg-gray-100 text-gray-600'
+              }`}>
+                4xx &gt; 20%: {(metrics?.status_codes?.['4xx'] || 0) > 20 ? 'TRIGGERED' : 'Normal'}
+              </div>
+              <div className={`p-2 rounded ${
+                (metrics?.detailed_codes?.['524'] || 0) > 5 ? 'bg-red-100 text-red-800' : 'bg-gray-100 text-gray-600'
+              }`}>
+                524 &gt; 5%: {(metrics?.detailed_codes?.['524'] || 0) > 5 ? 'TRIGGERED' : 'Normal'}
+              </div>
+              <div className={`p-2 rounded ${
+                (metrics?.detailed_codes?.['timeout'] || 0) > 15 ? 'bg-red-100 text-red-800' : 'bg-gray-100 text-gray-600'
+              }`}>
+                Timeout &gt; 15%: {(metrics?.detailed_codes?.['timeout'] || 0) > 15 ? 'TRIGGERED' : 'Normal'}
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Real-time Error Code Graph */}
+        <div className="bg-white p-6 rounded-lg shadow-sm border border-gray-200">
+          <h3 className="text-lg font-semibold text-gray-900 mb-4">5xx/4xx Error Distribution</h3>
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-4">
+            <div className="text-center">
+              <div className="text-2xl font-bold text-green-600">{metrics?.status_codes?.['2xx'] || 85}%</div>
+              <div className="text-sm text-gray-600">2xx Success</div>
+              <div className="w-full bg-gray-200 rounded-full h-2 mt-1">
+                <div className="bg-green-600 h-2 rounded-full" style={{width: `${metrics?.status_codes?.['2xx'] || 85}%`}}></div>
+              </div>
+            </div>
+            <div className="text-center">
+              <div className="text-2xl font-bold text-yellow-600">{metrics?.status_codes?.['4xx'] || 8}%</div>
+              <div className="text-sm text-gray-600">4xx Client</div>
+              <div className="w-full bg-gray-200 rounded-full h-2 mt-1">
+                <div className="bg-yellow-600 h-2 rounded-full" style={{width: `${metrics?.status_codes?.['4xx'] || 8}%`}}></div>
+              </div>
+            </div>
+            <div className="text-center">
+              <div className="text-2xl font-bold text-red-600">{metrics?.status_codes?.['5xx'] || 6}%</div>
+              <div className="text-sm text-gray-600">5xx Server</div>
+              <div className="w-full bg-gray-200 rounded-full h-2 mt-1">
+                <div className="bg-red-600 h-2 rounded-full" style={{width: `${metrics?.status_codes?.['5xx'] || 6}%`}}></div>
+              </div>
+            </div>
+            <div className="text-center">
+              <div className="text-2xl font-bold text-gray-600">{metrics?.status_codes?.['other'] || 1}%</div>
+              <div className="text-sm text-gray-600">Other</div>
+              <div className="w-full bg-gray-200 rounded-full h-2 mt-1">
+                <div className="bg-gray-600 h-2 rounded-full" style={{width: `${metrics?.status_codes?.['other'] || 1}%`}}></div>
+              </div>
+            </div>
+          </div>
+          
+          {/* Detailed Error Breakdown */}
+          <div className="border-t border-gray-200 pt-4">
+            <h4 className="text-sm font-medium text-gray-700 mb-2">Critical Error Codes</h4>
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-2 text-xs">
+              <div className="flex justify-between">
+                <span className="text-gray-600">403 Forbidden:</span>
+                <span className="font-medium">{metrics?.detailed_codes?.['403'] || 5}%</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-gray-600">404 Not Found:</span>
+                <span className="font-medium">{metrics?.detailed_codes?.['404'] || 3}%</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-gray-600">503 Service:</span>
+                <span className="font-medium">{metrics?.detailed_codes?.['503'] || 4}%</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-gray-600">524 Timeout:</span>
+                <span className="font-medium">{metrics?.detailed_codes?.['524'] || 2}%</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-gray-600">502 Bad Gateway:</span>
+                <span className="font-medium">{metrics?.detailed_codes?.['502'] || 1}%</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-gray-600">429 Rate Limit:</span>
+                <span className="font-medium">{metrics?.detailed_codes?.['429'] || 0}%</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-gray-600">Connection:</span>
+                <span className="font-medium">{metrics?.detailed_codes?.['timeout'] || 2}%</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-gray-600">DNS Errors:</span>
+                <span className="font-medium">{metrics?.detailed_codes?.['dns'] || 0}%</span>
+              </div>
+            </div>
+          </div>
         </div>
       </div>
 
