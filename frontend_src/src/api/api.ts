@@ -130,7 +130,7 @@ export const runsApi = {
 export const reportsApi = {
   getReports: async (): Promise<Report[]> => {
     const response = await api.get<ApiResponse<{ reports: Report[] }>>(
-      '/reports_list_endpoint.php'
+      '/reports_endpoint.php?action=list'
     );
     if (response.data.status === 'error') {
       throw new Error(response.data.message);
@@ -139,10 +139,41 @@ export const reportsApi = {
   },
 
   downloadReport: async (filename: string): Promise<Blob> => {
-    const response = await api.get(`/reports_get_endpoint.php?file=${filename}`, {
+    const response = await api.get(`/reports_endpoint.php?action=download&file=${filename}`, {
       responseType: 'blob',
     });
     return response.data;
+  },
+
+  viewReport: async (filename: string): Promise<any> => {
+    const response = await api.get<ApiResponse<any>>(
+      `/reports_endpoint.php?action=view&file=${filename}`
+    );
+    if (response.data.status === 'error') {
+      throw new Error(response.data.message);
+    }
+    return response.data.data;
+  },
+
+  deleteReport: async (filename: string): Promise<void> => {
+    const response = await api.post<ApiResponse>('/reports_endpoint.php', {
+      action: 'delete',
+      filename: filename
+    });
+    if (response.data.status === 'error') {
+      throw new Error(response.data.message);
+    }
+  },
+
+  cleanupReports: async (olderThanDays: number = 30): Promise<{ deleted_count: number }> => {
+    const response = await api.post<ApiResponse<{ deleted_count: number }>>('/reports_endpoint.php', {
+      action: 'cleanup',
+      older_than_days: olderThanDays
+    });
+    if (response.data.status === 'error') {
+      throw new Error(response.data.message);
+    }
+    return response.data.data!;
   },
 };
 

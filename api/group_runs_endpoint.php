@@ -9,6 +9,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
     exit();
 }
 
+require_once 'database.php';
+
 function logMessage($message) {
     $logFile = '/home/ftcceelg/load_testing_system/logs/backend.log';
     $logDir = dirname($logFile);
@@ -18,6 +20,17 @@ function logMessage($message) {
     $timestamp = date('Y-m-d H:i:s');
     $logEntry = "[$timestamp] GROUP_RUNS_ENDPOINT: $message" . PHP_EOL;
     file_put_contents($logFile, $logEntry, FILE_APPEND | LOCK_EX);
+}
+
+try {
+    $db = new Database();
+} catch (Exception $e) {
+    logMessage("ERROR: Database connection failed - " . $e->getMessage());
+    echo json_encode([
+        'success' => false,
+        'error' => 'Database connection failed'
+    ]);
+    exit();
 }
 
 $input = file_get_contents('php://input');
@@ -30,29 +43,60 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET') {
     logMessage("GET request - Action: $action, Group ID: $groupId");
     
     if ($action === 'status' && $groupId) {
-        echo json_encode([
-            'success' => true,
-            'group_id' => $groupId,
-            'status' => 'running',
-            'runs' => [
-                [
-                    'run_id' => 'run_' . uniqid(),
-                    'target' => 'https://example.com',
-                    'status' => 'running',
-                    'progress' => 50
-                ]
-            ]
-        ]);
+        try {
+            $group = $db->getGroup($groupId);
+            
+            if (!$group) {
+                logMessage("ERROR: Group not found: $groupId");
+                echo json_encode([
+                    'success' => false,
+                    'error' => 'Group not found'
+                ]);
+                exit();
+            }
+            
+            $runs = $db->getGroupRuns($groupId);
+            
+            logMessage("Group status requested for: $groupId - Status: " . $group['status'] . ", Runs: " . count($runs));
+            
+            echo json_encode([
+                'success' => true,
+                'group_id' => $groupId,
+                'status' => $group['status'],
+                'runs' => $runs,
+                'group_info' => $group
+            ]);
+            
+        } catch (Exception $e) {
+            logMessage("ERROR getting group status: " . $e->getMessage());
+            echo json_encode([
+                'success' => false,
+                'error' => 'Database error'
+            ]);
+        }
         exit();
     }
     
     if ($action === 'list') {
-        echo json_encode([
-            'success' => true,
-            'groups' => [],
-            'count' => 0,
-            'version' => '1.1.0'
-        ]);
+        try {
+            $groups = $db->getAllGroups(50);
+            
+            logMessage("Groups list requested - Found " . count($groups) . " groups");
+            
+            echo json_encode([
+                'success' => true,
+                'groups' => $groups,
+                'count' => count($groups),
+                'version' => '1.1.0'
+            ]);
+            
+        } catch (Exception $e) {
+            logMessage("ERROR listing groups: " . $e->getMessage());
+            echo json_encode([
+                'success' => false,
+                'error' => 'Database error'
+            ]);
+        }
         exit();
     }
 }
@@ -82,22 +126,28 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             
             $groupId = 'group_' . uniqid();
             
-            logMessage("Starting group: $groupId with " . count($targets) . " targets");
-            
-            $reportsDir = '/home/ftcceelg/load_testing_system/reports';
-            if (!is_dir($reportsDir)) {
-                mkdir($reportsDir, 0755, true);
-            }
-            
-            $runs = [];
-            foreach ($targets as $target) {
-                $runId = 'run_' . uniqid();
-                $runs[] = [
-                    'run_id' => $runId,
-                    'target' => $target,
-                    'status' => 'started',
-                    'group_id' => $groupId
-                ];
+            try {
+                $db->insertGroup($groupId, $targets, $profileId, $threads, $duration, $engine, $behaviorProfileId);
+                
+                logMessage("Starting group: $groupId with " . count($targets) . " targets");
+                
+                $reportsDir = '/home/ftcceelg/load_testing_system/reports';
+                if (!is_dir($reportsDir)) {
+                    mkdir($reportsDir, 0755, true);
+                }
+                
+                $runs = [];
+                foreach ($targets as $target) {
+                    $runId = 'run_' . uniqid();
+                    
+                    $db->insertRun($runId, $groupId, $target);
+                    
+                    $runs[] = [
+                        'run_id' => $runId,
+                        'target' => $target,
+                        'status' => 'started',
+                        'group_id' => $groupId
+                    ];
                 
                 $runReport = [
                     'run_id' => $runId,
@@ -142,14 +192,22 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $groupCsvData .= "$groupId," . count($targets) . ",$profileId,$threads,$duration,$engine,$behaviorProfileId," . date('Y-m-d H:i:s') . ",running\n";
             file_put_contents($groupCsvFile, $groupCsvData);
             
-            logMessage("Group $groupId started successfully with " . count($runs) . " runs");
-            
-            echo json_encode([
-                'success' => true,
-                'group_id' => $groupId,
-                'runs' => $runs,
-                'message' => 'Group started successfully'
-            ]);
+                logMessage("Group $groupId started successfully with " . count($runs) . " runs");
+                
+                echo json_encode([
+                    'success' => true,
+                    'group_id' => $groupId,
+                    'runs' => $runs,
+                    'message' => 'Group started successfully'
+                ]);
+                
+            } catch (Exception $e) {
+                logMessage("ERROR starting group: " . $e->getMessage());
+                echo json_encode([
+                    'success' => false,
+                    'error' => 'Database error: ' . $e->getMessage()
+                ]);
+            }
             exit();
             
         case 'stop_group':
@@ -164,13 +222,26 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 exit();
             }
             
-            logMessage("Group $groupId stopped successfully");
-            
-            echo json_encode([
-                'success' => true,
-                'group_id' => $groupId,
-                'message' => 'Group stopped successfully'
-            ]);
+            try {
+                $db->updateGroupStatus($groupId, 'stopped');
+                
+                $db->updateRunsStatus($groupId, 'stopped');
+                
+                logMessage("Group $groupId stopped successfully");
+                
+                echo json_encode([
+                    'success' => true,
+                    'group_id' => $groupId,
+                    'message' => 'Group stopped successfully'
+                ]);
+                
+            } catch (Exception $e) {
+                logMessage("ERROR stopping group: " . $e->getMessage());
+                echo json_encode([
+                    'success' => false,
+                    'error' => 'Database error'
+                ]);
+            }
             exit();
             
         default:
