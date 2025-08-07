@@ -25,6 +25,7 @@ const Targets: React.FC = () => {
     proxy_profile: 'rotating',
     stealth_profile: 'medium'
   });
+  const [bulkTargets, setBulkTargets] = useState('');
   const [isLoading, setIsLoading] = useState(true);
   const [editingTarget, setEditingTarget] = useState<string | null>(null);
 
@@ -167,6 +168,51 @@ const Targets: React.FC = () => {
     }
   };
 
+  const handleBulkImport = async () => {
+    if (!bulkTargets.trim()) return;
+    
+    const urls = bulkTargets
+      .split('\n')
+      .map(url => url.trim())
+      .filter(Boolean);
+    
+    if (urls.length === 0) return;
+    
+    const targetsToImport = urls.map(url => {
+      let label;
+      try {
+        label = new URL(url).hostname;
+      } catch (e) {
+        label = url.split('/')[0];
+      }
+      
+      return {
+        label,
+        url,
+        tags: ['bulk-import'],
+        attack_method: 'auto-bypass',
+        engine: 'auto-bypass',
+        proxy_profile: 'rotating',
+        stealth_profile: 'high'
+      };
+    });
+    
+    try {
+      const response = await fetch('/api/targets_endpoint.php', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'import', targets: targetsToImport })
+      });
+      
+      if (response.ok) {
+        setBulkTargets('');
+        fetchTargets();
+      }
+    } catch (error) {
+      console.error('Failed to bulk import targets:', error);
+    }
+  };
+
   const getStatusColor = (status: string) => {
     switch (status) {
       case 'active': return 'bg-green-100 text-green-800';
@@ -198,6 +244,32 @@ const Targets: React.FC = () => {
         {/* Add New Target */}
         <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6 mb-8">
           <h2 className="text-lg font-semibold text-gray-900 mb-4">Add New Target</h2>
+          
+          {/* Bulk Import Section */}
+          <div className="border-b border-gray-200 pb-4 mb-4">
+            <h3 className="text-md font-medium text-gray-900 mb-3">Bulk Import Targets</h3>
+            <div className="grid grid-cols-1 gap-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Paste URLs (one per line)</label>
+                <textarea
+                  value={bulkTargets}
+                  onChange={(e) => setBulkTargets(e.target.value)}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  rows={5}
+                  placeholder="https://example1.com&#10;https://example2.com&#10;https://example3.com"
+                />
+              </div>
+              <div>
+                <button
+                  onClick={handleBulkImport}
+                  className="bg-green-600 text-white px-4 py-2 rounded-md hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-green-500"
+                >
+                  Import Targets
+                </button>
+              </div>
+            </div>
+          </div>
+          
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">Label</label>

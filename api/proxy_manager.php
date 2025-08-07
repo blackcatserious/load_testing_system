@@ -535,15 +535,15 @@ function generateRandomIP() {
     return rand(1, 254) . '.' . rand(1, 254) . '.' . rand(1, 254) . '.' . rand(1, 254);
 }
 
-function importProxiesFromMultipleSources($db, $sources, $maxProxies = 1000000) {
+function importProxiesFromMultipleSources($db, $sources, $maxProxies = PHP_INT_MAX) {
     $totalImported = 0;
     $totalFailed = 0;
     $results = [];
     
     foreach ($sources as $source) {
-        if ($totalImported >= $maxProxies) {
-            break;
-        }
+        // if ($totalImported >= $maxProxies) {
+        //     break;
+        // }
         
         try {
             $remaining = $maxProxies - $totalImported;
@@ -610,7 +610,7 @@ function cleanupDeadProxies($db) {
     ];
 }
 
-function getProxyRotationPool($db, $limit = 10000) {
+function getProxyRotationPool($db, $limit = PHP_INT_MAX) {
     $pdo = $db->getPDO();
     $stmt = $pdo->prepare("SELECT * FROM proxy_pool WHERE status = 'alive' AND failure_count < 3 ORDER BY RANDOM() LIMIT ?");
     $stmt->execute([$limit]);
@@ -625,5 +625,77 @@ function markProxyAsUsed($db, $proxyId) {
     $pdo = $db->getPDO();
     $stmt = $pdo->prepare("UPDATE proxy_pool SET success_count = success_count + 1, last_check = ? WHERE id = ?");
     return $stmt->execute([date('Y-m-d H:i:s'), $proxyId]);
+}
+
+function markProxyAsBanned($db, $proxyId) {
+    $pdo = $db->getPDO();
+    $stmt = $pdo->prepare("UPDATE proxy_pool SET status = 'banned', failure_count = failure_count + 1, last_check = ? WHERE id = ?");
+    $result = $stmt->execute([date('Y-m-d H:i:s'), $proxyId]);
+    
+    if ($result) {
+        logMessage("Proxy ID $proxyId marked as banned, automatically rotating to new proxy");
+        return getNewProxyAfterBan($db);
+    }
+    
+    return null;
+}
+
+function getNewProxyAfterBan($db) {
+    $proxies = getProxyRotationPool($db, 1);
+    return !empty($proxies) ? $proxies[0] : null;
+}
+
+function liveReloadProxiesFromFile($db, $filePath = '/home/ftcceelg/load_testing_system/proxy_pool.json') {
+    if (!file_exists($filePath)) {
+        logMessage("WARNING: Proxy pool file not found: $filePath");
+        return [
+            'success' => false,
+            'error' => 'Proxy pool file not found'
+        ];
+    }
+    
+    $content = file_get_contents($filePath);
+    $data = json_decode($content, true);
+    
+    if (json_last_error() !== JSON_ERROR_NONE || !isset($data['proxies'])) {
+        logMessage("ERROR: Invalid proxy pool file format: $filePath");
+        return [
+            'success' => false,
+            'error' => 'Invalid proxy pool file format'
+        ];
+    }
+    
+    $imported = 0;
+    $failed = 0;
+    
+    foreach ($data['proxies'] as $proxy) {
+        try {
+            $result = insertProxy(
+                $db,
+                $proxy['ip_address'],
+                $proxy['port'] ?? 8080,
+                $proxy['protocol'] ?? 'http',
+                $proxy['country'] ?? null,
+                'file_import'
+            );
+            
+            if ($result) {
+                $imported++;
+            } else {
+                $failed++;
+            }
+        } catch (Exception $e) {
+            $failed++;
+        }
+    }
+    
+    logMessage("Live reload completed: $imported imported, $failed failed from: $filePath");
+    
+    return [
+        'success' => true,
+        'imported' => $imported,
+        'failed' => $failed,
+        'source' => $filePath
+    ];
 }
 ?>

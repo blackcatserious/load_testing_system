@@ -257,4 +257,50 @@ class BehaviorProfileManager {
         $logEntry = "[$timestamp] BEHAVIOR_PROFILE_MANAGER: $message" . PHP_EOL;
         file_put_contents($logFile, $logEntry, FILE_APPEND | LOCK_EX);
     }
+    
+    public function detectProtection($threadId, $responseData) {
+        if (!isset($this->sessionData[$threadId])) {
+            return false;
+        }
+        
+        $protectionSignals = [
+            'captcha_detected' => false,
+            'rate_limiting' => false,
+            'browser_verification' => false,
+            'ip_blocking' => false
+        ];
+        
+        if (isset($responseData['body']) && 
+            (strpos($responseData['body'], 'captcha') !== false || 
+             strpos($responseData['body'], 'recaptcha') !== false ||
+             strpos($responseData['body'], 'hcaptcha') !== false)) {
+            $protectionSignals['captcha_detected'] = true;
+        }
+        
+        if (isset($responseData['status_code']) && ($responseData['status_code'] == 429 || $responseData['status_code'] == 403)) {
+            $protectionSignals['rate_limiting'] = true;
+        }
+        
+        if (isset($responseData['body']) && 
+            (strpos($responseData['body'], 'browser check') !== false || 
+             strpos($responseData['body'], 'javascript required') !== false ||
+             strpos($responseData['body'], 'checking your browser') !== false ||
+             strpos($responseData['body'], 'DDoS protection by') !== false ||
+             strpos($responseData['body'], 'Cloudflare') !== false)) {
+            $protectionSignals['browser_verification'] = true;
+        }
+        
+        if (isset($responseData['status_code']) && ($responseData['status_code'] == 403 || $responseData['status_code'] == 401)) {
+            if (isset($responseData['body']) && 
+                (strpos($responseData['body'], 'blocked') !== false || 
+                 strpos($responseData['body'], 'access denied') !== false ||
+                 strpos($responseData['body'], 'forbidden') !== false)) {
+                $protectionSignals['ip_blocking'] = true;
+            }
+        }
+        
+        $this->logMessage("Protection detection for thread $threadId: " . json_encode($protectionSignals));
+        
+        return array_filter($protectionSignals) ? $protectionSignals : false;
+    }
 }

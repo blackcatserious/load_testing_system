@@ -49,6 +49,73 @@ const Dashboard: React.FC = () => {
     localStorage.setItem('behaviorProfile', behaviorProfile);
   }, [engine, behaviorProfile]);
 
+  const handleStartAttack = async (groupId: string) => {
+    try {
+      const response = await fetch('/api/start_endpoint.php', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'start',
+          group_id: groupId,
+          profile_id: 'ramp-up',
+          threads: unlimitedMode ? 50000 : threads,
+          duration: duration,
+          engine: engine,
+          behavior_profile_id: behaviorProfile
+        })
+      });
+      
+      if (response.ok) {
+        const fetchGroupRuns = async () => {
+          try {
+            const response = await fetch('/api/group_runs_endpoint.php?action=list');
+            if (response.ok) {
+              const data = await response.json();
+              setGroupRuns(data.groups || []);
+            }
+          } catch (err) {
+            console.error('Failed to fetch group runs:', err);
+          }
+        };
+        
+        fetchGroupRuns();
+      }
+    } catch (error) {
+      console.error('Failed to start attack:', error);
+    }
+  };
+  
+  const handleStopAttack = async (groupId: string) => {
+    try {
+      const response = await fetch('/api/stop_endpoint.php', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'stop',
+          group_id: groupId
+        })
+      });
+      
+      if (response.ok) {
+        const fetchGroupRuns = async () => {
+          try {
+            const response = await fetch('/api/group_runs_endpoint.php?action=list');
+            if (response.ok) {
+              const data = await response.json();
+              setGroupRuns(data.groups || []);
+            }
+          } catch (err) {
+            console.error('Failed to fetch group runs:', err);
+          }
+        };
+        
+        fetchGroupRuns();
+      }
+    } catch (error) {
+      console.error('Failed to stop attack:', error);
+    }
+  };
+
   const tabs = [
     { id: 'overview' as TabType, label: 'Overview', icon: BarChart3 },
     { id: 'runs' as TabType, label: 'Runs', icon: Play },
@@ -882,9 +949,19 @@ const Dashboard: React.FC = () => {
                           <button className="text-blue-600 hover:text-blue-900 mr-3">
                             Download Report
                           </button>
-                          {run.status === 'running' && (
-                            <button className="text-red-600 hover:text-red-900">
-                              Stop
+                          {run.status === 'running' ? (
+                            <button 
+                              onClick={() => handleStopAttack(run.group_id)}
+                              className="bg-red-600 text-white px-3 py-1 rounded-md hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-500"
+                            >
+                              Stop Attack
+                            </button>
+                          ) : (
+                            <button 
+                              onClick={() => handleStartAttack(run.group_id)}
+                              className="bg-green-600 text-white px-3 py-1 rounded-md hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-green-500"
+                            >
+                              Start Attack
                             </button>
                           )}
                         </td>

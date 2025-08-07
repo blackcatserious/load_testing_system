@@ -88,7 +88,7 @@ class ContinuousAdaptiveOrchestrator {
     public function getDefaultConfig() {
         return [
             'initial_threads' => 500,
-            'max_threads' => 20000,
+            'max_threads' => PHP_INT_MAX, // Changed from 20000 to PHP_INT_MAX for unlimited threads
             'evolution_interval' => 60,
             'ja3_rotation_interval' => 20,
             'success_threshold' => 75.0,
@@ -232,10 +232,12 @@ class ContinuousAdaptiveOrchestrator {
     }
     
     private function escalateThreads() {
-        $newThreads = min(
-            $this->currentThreads * $this->config['escalation_factor'],
-            $this->config['max_threads']
-        );
+        $newThreads = $this->currentThreads * $this->config['escalation_factor'];
+        
+        // $newThreads = min(
+        //     $this->currentThreads * $this->config['escalation_factor'],
+        //     $this->config['max_threads']
+        // );
         
         if ($newThreads > $this->currentThreads) {
             $this->logMessage("Escalating threads from {$this->currentThreads} to $newThreads");
