@@ -14,7 +14,7 @@ interface GroupRun {
 
 type TabType = 'overview' | 'runs' | 'details' | 'logs' | 'settings' | 'reports';
 
-const Dashboard: React.FC = () => {
+const Dashboard: React.FC<{}> = () => {
   const [activeTab, setActiveTab] = useState<TabType>('overview');
   const [groupRuns, setGroupRuns] = useState<GroupRun[]>([]);
 
@@ -26,7 +26,7 @@ const Dashboard: React.FC = () => {
   const [duration, setDuration] = useState(3600);
   const [requestDelay, setRequestDelay] = useState(100);
   const [targetCount, setTargetCount] = useState(3);
-  const [unlimitedMode, setUnlimitedMode] = useState(false);
+  const [unlimitedMode, setUnlimitedMode] = useState(true);
 
   useEffect(() => {
     const fetchGroupRuns = async () => {
@@ -58,13 +58,13 @@ const Dashboard: React.FC = () => {
           action: 'start',
           group_id: groupId,
           profile_id: 'ramp-up',
-          threads: unlimitedMode ? 50000 : threads,
-          duration: duration,
+          threads: unlimitedMode ? 100000 : threads,
+          duration: unlimitedMode ? 2592000 : duration, // 30 days if unlimited
           engine: engine,
           behavior_profile_id: behaviorProfile
         })
       });
-      
+
       if (response.ok) {
         const fetchGroupRuns = async () => {
           try {
@@ -77,14 +77,13 @@ const Dashboard: React.FC = () => {
             console.error('Failed to fetch group runs:', err);
           }
         };
-        
         fetchGroupRuns();
       }
-    } catch (error) {
-      console.error('Failed to start attack:', error);
+    } catch (err) {
+      console.error('Failed to start attack:', err);
     }
   };
-  
+
   const handleStopAttack = async (groupId: string) => {
     try {
       const response = await fetch('/api/stop_endpoint.php', {
@@ -95,7 +94,7 @@ const Dashboard: React.FC = () => {
           group_id: groupId
         })
       });
-      
+
       if (response.ok) {
         const fetchGroupRuns = async () => {
           try {
@@ -108,769 +107,224 @@ const Dashboard: React.FC = () => {
             console.error('Failed to fetch group runs:', err);
           }
         };
-        
         fetchGroupRuns();
       }
-    } catch (error) {
-      console.error('Failed to stop attack:', error);
+    } catch (err) {
+      console.error('Failed to stop attack:', err);
     }
   };
 
   const tabs = [
-    { id: 'overview' as TabType, label: 'Overview', icon: BarChart3 },
-    { id: 'runs' as TabType, label: 'Runs', icon: Play },
-    { id: 'details' as TabType, label: 'Run Details', icon: Activity },
-    { id: 'logs' as TabType, label: 'Logs', icon: FileText },
-    { id: 'settings' as TabType, label: 'Settings', icon: SettingsIcon },
-    { id: 'reports' as TabType, label: 'Reports', icon: Database },
+    { id: 'overview', label: 'Overview', icon: BarChart3 },
+    { id: 'runs', label: 'Runs', icon: Activity },
+    { id: 'logs', label: 'Logs', icon: FileText },
+    { id: 'settings', label: 'Settings', icon: SettingsIcon },
+    { id: 'reports', label: 'Reports', icon: Database }
   ];
 
-  const statusCodeData = metrics ? [
-    { name: '2xx Success', value: metrics.status_codes?.['2xx'] || metrics.success_count || 0, color: '#10b981' },
-    { name: '4xx Client Error', value: metrics.status_codes?.['4xx'] || metrics.client_error_count || 0, color: '#f59e0b' },
-    { name: '5xx Server Error', value: metrics.status_codes?.['5xx'] || metrics.server_error_count || 0, color: '#ef4444' },
-    { name: '403 Forbidden', value: metrics.status_codes?.['403'] || 0, color: '#8b5cf6' },
-    { name: '429 Rate Limited', value: metrics.status_codes?.['429'] || 0, color: '#f97316' },
-    { name: '524 Timeout', value: metrics.status_codes?.['524'] || 0, color: '#6b7280' },
-  ] : [];
+  const statusCodeData = [
+    { name: '2xx', value: metrics?.status_codes?.['2xx'] || 0, color: '#10B981' },
+    { name: '4xx', value: metrics?.status_codes?.['4xx'] || 0, color: '#F59E0B' },
+    { name: '5xx', value: metrics?.status_codes?.['5xx'] || 0, color: '#EF4444' }
+  ];
 
   const renderOverviewTab = () => (
     <div className="space-y-6">
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
-        {/* Engine Selection Panel */}
-        <div className="bg-white p-6 rounded-lg shadow-sm border border-gray-200">
-          <h3 className="text-lg font-semibold text-gray-900 mb-4">Attack Engine Selection</h3>
-          <div className="space-y-4">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">Attack Method</label>
-              <select 
-                value={engine} 
-                onChange={(e) => setEngine(e.target.value)}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                title="Select attack method with specific load characteristics"
-              >
-                <option value="playwright">Playwright - Browser automation with JS execution</option>
-                <option value="socket-spam">Socket Spam - Raw TCP connection flooding</option>
-                <option value="auto-bypass">Auto Bypass - Intelligent protection circumvention</option>
-                <option value="http-spammer">HTTP Spammer - High-volume HTTP requests</option>
-                <option value="tls-jammer">TLS Jammer - SSL/TLS handshake disruption</option>
-                <option value="raw">Raw HTTP - Direct HTTP protocol attacks</option>
-                <option value="fetch">Fetch API - Modern browser-based requests</option>
-                <option value="fetch-retry">Fetch Retry - Persistent retry with exponential backoff</option>
-                <option value="slowloris-js">Slowloris JS - Slow connection exhaustion attacks</option>
-                <option value="headless-flutter">Headless Flutter - Mobile app simulation attacks</option>
-                <option value="browser-mix">Browser Mix - Multi-browser stealth combination</option>
-              </select>
-              <p className="text-xs text-gray-500 mt-1">
-                {engine === 'playwright' && 'Full browser simulation with JavaScript execution'}
-                {engine === 'socket-spam' && 'Raw socket connections for maximum load'}
-                {engine === 'auto-bypass' && 'Adaptive bypass techniques for protected targets'}
-                {engine === 'http-spammer' && 'High-frequency HTTP request generation'}
-                {engine === 'tls-jammer' && 'SSL/TLS layer disruption attacks'}
-                {engine === 'raw' && 'Direct HTTP protocol implementation'}
-                {engine === 'fetch' && 'Modern fetch API with advanced headers'}
-                {engine === 'fetch-retry' && 'Persistent retry attacks with exponential backoff and stealth rotation'}
-                {engine === 'slowloris-js' && 'Slow connection exhaustion to overwhelm server resources'}
-                {engine === 'headless-flutter' && 'Mobile app simulation with native behavior patterns'}
-                {engine === 'browser-mix' && 'Multi-browser stealth combination for maximum evasion'}
-              </p>
-            </div>
-            
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">Behavior Profile</label>
-              <select 
-                value={behaviorProfile} 
-                onChange={(e) => setBehaviorProfile(e.target.value)}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-              >
-                <option value="casual">Casual - Normal user browsing patterns</option>
-                <option value="scanner">Scanner - Vulnerability scanning behavior</option>
-                <option value="reader">Reader - Content consumption patterns</option>
-                <option value="mobile">Mobile - Mobile device simulation</option>
-                <option value="power">Power User - Advanced user interactions</option>
-              </select>
-              <button className="mt-2 text-sm text-blue-600 hover:text-blue-800">
-                Generate Custom Profile
-              </button>
-            </div>
-          </div>
-        </div>
-
-        {/* Fingerprint Status Panel */}
-        <div className="bg-white p-6 rounded-lg shadow-sm border border-gray-200">
-          <h3 className="text-lg font-semibold text-gray-900 mb-4">Fingerprint Status</h3>
-          <div className="space-y-3">
-            <div className="flex justify-between items-center">
-              <span className="text-sm font-medium text-gray-700">Active JA3 Signature:</span>
-              <span className="text-sm text-gray-900 font-mono">769,47-53-5-10-49-51-23-65281-0-11-35-16-5-13-18-21-43-45-51</span>
-            </div>
-            <div className="flex justify-between items-center">
-              <span className="text-sm font-medium text-gray-700">TLS Version:</span>
-              <span className="text-sm text-gray-900">TLS 1.3</span>
-            </div>
-            <div className="flex justify-between items-center">
-              <span className="text-sm font-medium text-gray-700">TLS Fingerprint:</span>
-              <span className="text-sm text-gray-900 font-mono">771,4865-4866-4867-49195-49199-49196-49200-52393-52392-49171-49172</span>
-            </div>
-            <div className="flex justify-between items-center">
-              <span className="text-sm font-medium text-gray-700">Cipher Suites:</span>
-              <span className="text-sm text-gray-900">TLS_AES_256_GCM_SHA384, TLS_CHACHA20_POLY1305_SHA256</span>
-            </div>
-            <div className="flex justify-between items-center">
-              <span className="text-sm font-medium text-gray-700">User-Agent:</span>
-              <span className="text-sm text-gray-900 truncate max-w-xs">Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36</span>
-            </div>
-            <div className="pt-2 border-t border-gray-200">
-              <div className="flex justify-between items-center">
-                <span className="text-sm font-medium text-gray-700">Stealth Level:</span>
-                <span className="inline-flex px-2 py-1 text-xs bg-purple-100 text-purple-800 rounded">Very High</span>
-              </div>
-              <div className="flex justify-between items-center mt-1">
-                <span className="text-sm font-medium text-gray-700">JA3 Rotation:</span>
-                <span className="inline-flex px-2 py-1 text-xs bg-green-100 text-green-800 rounded">Enabled</span>
-              </div>
-              <div className="flex justify-between items-center mt-1">
-                <span className="text-sm font-medium text-gray-700">TLS Rotation:</span>
-                <span className="inline-flex px-2 py-1 text-xs bg-green-100 text-green-800 rounded">Enabled</span>
-              </div>
-              <div className="flex justify-between items-center mt-1">
-                <span className="text-sm font-medium text-gray-700">UA Rotation:</span>
-                <span className="inline-flex px-2 py-1 text-xs bg-green-100 text-green-800 rounded">Enabled</span>
-              </div>
-              <div className="flex justify-between items-center mt-1">
-                <span className="text-sm font-medium text-gray-700">Detection Risk:</span>
-                <span className="inline-flex px-2 py-1 text-xs bg-green-100 text-green-800 rounded">Very Low</span>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {/* Launch Parameters Panel */}
-      <div className="bg-white p-6 rounded-lg shadow-sm border border-gray-200 mb-6">
-        <div className="flex justify-between items-center mb-4">
-          <h3 className="text-lg font-semibold text-gray-900">Launch Parameters</h3>
-          <div className="flex items-center">
-            <span className="text-sm font-medium text-gray-700 mr-2">Unlimited Mode</span>
-            <label className="relative inline-flex items-center cursor-pointer">
-              <input 
-                type="checkbox" 
-                checked={unlimitedMode} 
-                onChange={(e) => setUnlimitedMode(e.target.checked)}
-                className="sr-only peer" 
-              />
-              <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
-            </label>
-          </div>
-        </div>
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              Threads {unlimitedMode && <span className="text-red-500 text-xs">(UNLIMITED)</span>}
-            </label>
-            <input
-              type="range"
-              min="1"
-              max={unlimitedMode ? "100000" : "500"}
-              value={threads}
-              onChange={(e) => setThreads(Number(e.target.value))}
-              className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer"
-            />
-            <div className="flex justify-between text-xs text-gray-500 mt-1">
-              <span>1</span>
-              <span className="font-medium">{threads}</span>
-              <span>{unlimitedMode ? "100K" : "500"}</span>
-            </div>
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              Duration (seconds) {unlimitedMode && <span className="text-red-500 text-xs">(UNLIMITED)</span>}
-            </label>
-            <input
-              type="range"
-              min="30"
-              max={unlimitedMode ? "2592000" : "10800"}
-              value={duration}
-              onChange={(e) => setDuration(Number(e.target.value))}
-              className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer"
-            />
-            <div className="flex justify-between text-xs text-gray-500 mt-1">
-              <span>30s</span>
-              <span className="font-medium">{Math.floor(duration / 3600)}h {Math.floor((duration % 3600) / 60)}m</span>
-              <span>{unlimitedMode ? "30d" : "3h"}</span>
-            </div>
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">Request Delay (ms)</label>
-            <input
-              type="range"
-              min="0"
-              max="5000"
-              value={requestDelay}
-              onChange={(e) => setRequestDelay(Number(e.target.value))}
-              className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer"
-            />
-            <div className="flex justify-between text-xs text-gray-500 mt-1">
-              <span>0</span>
-              <span className="font-medium">{requestDelay}</span>
-              <span>5000</span>
-            </div>
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              Target Count {unlimitedMode && <span className="text-red-500 text-xs">(UNLIMITED)</span>}
-            </label>
-            <input
-              type="number"
-              min="1"
-              max={unlimitedMode ? "10000" : "50"}
-              value={targetCount}
-              onChange={(e) => setTargetCount(Number(e.target.value))}
-              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-            />
-          </div>
-        </div>
-      </div>
-
-      {/* Live Monitoring Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4 mb-8">
-        <div className="bg-white p-4 rounded-lg shadow-sm border border-gray-200">
-          <div className="flex items-center">
-            <TrendingUp className="h-6 w-6 text-blue-600" />
-            <div className="ml-3">
-              <p className="text-xs font-medium text-gray-600">RPS</p>
-              <p className="text-xl font-bold text-gray-900">{metrics?.rps || metrics?.requests_per_second || 0}</p>
-            </div>
-          </div>
-        </div>
-        <div className="bg-white p-4 rounded-lg shadow-sm border border-gray-200">
-          <div className="flex items-center">
-            <Users className="h-6 w-6 text-green-600" />
-            <div className="ml-3">
-              <p className="text-xs font-medium text-gray-600">Active Threads</p>
-              <p className="text-xl font-bold text-gray-900">{metrics?.threads || metrics?.active_threads || 0}</p>
-            </div>
-          </div>
-        </div>
-        <div className="bg-white p-4 rounded-lg shadow-sm border border-gray-200">
-          <div className="flex items-center">
-            <Clock className="h-6 w-6 text-yellow-600" />
-            <div className="ml-3">
-              <p className="text-xs font-medium text-gray-600">Latency p50</p>
-              <p className="text-xl font-bold text-gray-900">{metrics?.avg_latency || metrics?.average_response_time || 0}ms</p>
-            </div>
-          </div>
-        </div>
-        <div className="bg-white p-4 rounded-lg shadow-sm border border-gray-200">
-          <div className="flex items-center">
-            <AlertTriangle className="h-6 w-6 text-orange-600" />
-            <div className="ml-3">
-              <p className="text-xs font-medium text-gray-600">p95 Latency</p>
-              <p className="text-xl font-bold text-gray-900">{Math.round((metrics?.avg_latency || 0) * 1.8)}ms</p>
-            </div>
-          </div>
-        </div>
-        <div className="bg-white p-4 rounded-lg shadow-sm border border-gray-200">
-          <div className="flex items-center">
-            <AlertTriangle className="h-6 w-6 text-red-600" />
-            <div className="ml-3">
-              <p className="text-xs font-medium text-gray-600">p99 Latency</p>
-              <p className="text-xl font-bold text-gray-900">{Math.round((metrics?.avg_latency || 0) * 2.5)}ms</p>
-              {metrics && metrics.status_codes && ((metrics.status_codes['403'] || 0) > 0 || (metrics.status_codes['429'] || 0) > 0) && (
-                <div className="inline-flex px-2 py-1 text-xs bg-yellow-100 text-yellow-800 rounded mt-1">
-                  Protection Activated
-                </div>
-              )}
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {/* Stealth Rotation Stats Panel */}
-      <div className="bg-white p-6 rounded-lg shadow-sm border border-gray-200 mb-6">
-        <h3 className="text-lg font-semibold text-gray-900 mb-4">Stealth Rotation Stats</h3>
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
-          <div className="bg-gray-50 p-4 rounded-lg">
-            <div className="flex items-center justify-between">
-              <span className="text-sm font-medium text-gray-600">Proxy Rotations</span>
-              <span className="text-lg font-bold text-blue-600">{metrics?.stealth_stats?.proxy_rotations || 0}</span>
-            </div>
-            <div className="text-xs text-gray-500 mt-1">Active: {metrics?.stealth_stats?.active_proxies || 0}</div>
-          </div>
-          <div className="bg-gray-50 p-4 rounded-lg">
-            <div className="flex items-center justify-between">
-              <span className="text-sm font-medium text-gray-600">JA3 Fingerprints</span>
-              <span className="text-lg font-bold text-green-600">{metrics?.stealth_stats?.ja3_rotations || 0}</span>
-            </div>
-            <div className="text-xs text-gray-500 mt-1">Pool: {metrics?.stealth_stats?.ja3_pool_size || 0}</div>
-          </div>
-          <div className="bg-gray-50 p-4 rounded-lg">
-            <div className="flex items-center justify-between">
-              <span className="text-sm font-medium text-gray-600">User-Agent</span>
-              <span className="text-lg font-bold text-purple-600">{metrics?.stealth_stats?.ua_rotations || 0}</span>
-            </div>
-            <div className="text-xs text-gray-500 mt-1">Variants: {metrics?.stealth_stats?.ua_variants || 0}</div>
-          </div>
-          <div className="bg-gray-50 p-4 rounded-lg">
-            <div className="flex items-center justify-between">
-              <span className="text-sm font-medium text-gray-600">TLS Profiles</span>
-              <span className="text-lg font-bold text-orange-600">{metrics?.stealth_stats?.tls_rotations || 0}</span>
-            </div>
-            <div className="text-xs text-gray-500 mt-1">Configs: {metrics?.stealth_stats?.tls_configs || 0}</div>
-          </div>
-          <div className="bg-gray-50 p-4 rounded-lg">
-            <div className="flex items-center justify-between">
-              <span className="text-sm font-medium text-gray-600">Cookie Sessions</span>
-              <span className="text-lg font-bold text-red-600">{metrics?.stealth_stats?.cookie_rotations || 0}</span>
-            </div>
-            <div className="text-xs text-gray-500 mt-1">Active: {metrics?.stealth_stats?.active_sessions || 0}</div>
-          </div>
-        </div>
-      </div>
-
-      {/* Real-time Success Rate Chart */}
-      <div className="bg-white p-6 rounded-lg shadow-sm border border-gray-200 mb-6">
-        <h3 className="text-lg font-semibold text-gray-900 mb-4">Real-time Success Rate per Target</h3>
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {metrics?.target_metrics && Object.entries(metrics.target_metrics).map(([target, targetData]: [string, any]) => (
-            <div key={target} className="border border-gray-200 rounded-lg p-4">
-              <div className="flex items-center justify-between mb-2">
-                <h4 className="font-medium text-gray-900 truncate">{target}</h4>
-                {targetData.success_detection?.target_disabled && (
-                  <span className="inline-flex px-2 py-1 text-xs bg-red-100 text-red-800 rounded">
-                    DISABLED
-                  </span>
-                )}
-                {(targetData.status_codes?.['403'] > 0 || targetData.status_codes?.['429'] > 0) && (
-                  <span className="inline-flex px-2 py-1 text-xs bg-yellow-100 text-yellow-800 rounded">
-                    Protection Active
-                  </span>
-                )}
-              </div>
-              <div className="space-y-2">
-                <div className="flex justify-between text-sm">
-                  <span>Success Rate:</span>
-                  <span className={`font-medium ${targetData.success_rate > 80 ? 'text-green-600' : targetData.success_rate > 50 ? 'text-yellow-600' : 'text-red-600'}`}>
-                    {targetData.success_rate || 0}%
-                  </span>
-                </div>
-                <div className="w-full bg-gray-200 rounded-full h-2">
-                  <div 
-                    className={`h-2 rounded-full ${targetData.success_rate > 80 ? 'bg-green-500' : targetData.success_rate > 50 ? 'bg-yellow-500' : 'bg-red-500'}`}
-                    style={{ width: `${targetData.success_rate || 0}%` }}
-                  ></div>
-                </div>
-                <div className="text-xs text-gray-500">
-                  RPS: {targetData.rps || 0} | Latency: {targetData.avg_latency || 0}ms
-                </div>
-              </div>
-            </div>
-          ))}
-          {(!metrics?.target_metrics || Object.keys(metrics.target_metrics).length === 0) && (
-            <div className="col-span-full text-center text-gray-500 py-8">
-              No active targets to display
-            </div>
-          )}
-        </div>
-      </div>
-
-      {/* Proxy Status Panel */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
-        <div className="bg-white p-6 rounded-lg shadow-sm border border-gray-200">
-          <h3 className="text-lg font-semibold text-gray-900 mb-4">Proxy Status</h3>
-          <div className="space-y-3">
-            <div className="flex justify-between items-center">
-              <span className="text-sm font-medium text-gray-700">Active Proxy:</span>
-              <span className="text-sm text-gray-900 font-mono">
-                185.220.101.182:8080
-                <span className="ml-2 inline-flex px-2 py-1 text-xs bg-green-100 text-green-800 rounded">Active</span>
-              </span>
-            </div>
-            <div className="flex justify-between items-center">
-              <span className="text-sm font-medium text-gray-700">Ping:</span>
-              <span className="text-sm text-gray-900">113ms</span>
-            </div>
-            <div className="flex justify-between items-center">
-              <span className="text-sm font-medium text-gray-700">Total Proxies:</span>
-              <span className="text-sm text-gray-900">{metrics?.proxy_stats?.total_proxies || 0}</span>
-            </div>
-            <div className="flex justify-between items-center">
-              <span className="text-sm font-medium text-gray-700">Active Proxies:</span>
-              <span className="text-sm text-gray-900">{metrics?.proxy_stats?.active_proxies || 0}</span>
-            </div>
-            <div className="flex justify-between items-center">
-              <span className="text-sm font-medium text-gray-700">Success Rate:</span>
-              <span className="text-sm text-gray-900">{Math.round((metrics?.proxy_stats?.success_rate || 0) * 100)}%</span>
-            </div>
-            <div className="pt-2 border-t border-gray-200">
-              <div className="flex justify-between items-center">
-                <span className="text-sm font-medium text-gray-700">Proxy Rotation:</span>
-                <span className="inline-flex px-2 py-1 text-xs bg-green-100 text-green-800 rounded">Enabled</span>
-              </div>
-              <div className="flex justify-between items-center mt-1">
-                <span className="text-sm font-medium text-gray-700">Rotations Count:</span>
-                <span className="text-sm text-gray-900">{metrics?.proxy_stats?.rotation_count || 0}</span>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <div className="bg-white p-6 rounded-lg shadow-sm border border-gray-200">
-          <h3 className="text-lg font-semibold text-gray-900 mb-4">Proxy Health Monitor</h3>
-          <div className="space-y-3">
-            <div className="flex justify-between items-center">
-              <span className="text-sm font-medium text-gray-700">Health Check Status:</span>
-              <span className="inline-flex px-2 py-1 text-xs bg-green-100 text-green-800 rounded">Running</span>
-            </div>
-            <div className="flex justify-between items-center">
-              <span className="text-sm font-medium text-gray-700">Last Check:</span>
-              <span className="text-sm text-gray-900">2 seconds ago</span>
-            </div>
-            <div className="flex justify-between items-center">
-              <span className="text-sm font-medium text-gray-700">Dead Proxies:</span>
-              <span className="text-sm text-red-600">{(metrics?.proxy_stats?.total_proxies || 0) - (metrics?.proxy_stats?.active_proxies || 0)}</span>
-            </div>
-            <div className="flex justify-between items-center">
-              <span className="text-sm font-medium text-gray-700">Avg Response Time:</span>
-              <span className="text-sm text-gray-900">245ms</span>
-            </div>
-            <div className="pt-2 border-t border-gray-200">
-              <div className="text-xs text-gray-500 space-y-1">
-                <div>✓ 185.220.101.182:8080 - 113ms</div>
-                <div>✓ 192.168.1.100:3128 - 89ms</div>
-                <div>✗ 10.0.0.1:8080 - timeout</div>
-                <div>✓ 203.0.113.45:1080 - 156ms</div>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {/* Response Codes Real-time Panel */}
-      <div className="bg-white p-6 rounded-lg shadow-sm border border-gray-200 mb-8">
-        <h3 className="text-lg font-semibold text-gray-900 mb-4">Live Response Code Distribution</h3>
-        <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-8 gap-4">
-          <div className="text-center">
-            <div className="text-2xl font-bold text-green-600">200</div>
-            <div className="text-sm text-gray-600">Success</div>
-            <div className="text-xs text-gray-500">85.2%</div>
-          </div>
-          <div className="text-center">
-            <div className="text-2xl font-bold text-yellow-600">403</div>
-            <div className="text-sm text-gray-600">Forbidden</div>
-            <div className="text-xs text-gray-500">5.1%</div>
-          </div>
-          <div className="text-center">
-            <div className="text-2xl font-bold text-orange-600">404</div>
-            <div className="text-sm text-gray-600">Not Found</div>
-            <div className="text-xs text-gray-500">3.2%</div>
-          </div>
-          <div className="text-center">
-            <div className="text-2xl font-bold text-red-600">503</div>
-            <div className="text-sm text-gray-600">Service Unavailable</div>
-            <div className="text-xs text-gray-500">4.8%</div>
-          </div>
-          <div className="text-center">
-            <div className="text-2xl font-bold text-red-700">524</div>
-            <div className="text-sm text-gray-600">Timeout</div>
-            <div className="text-xs text-gray-500">1.7%</div>
-          </div>
-          <div className="text-center">
-            <div className="text-2xl font-bold text-purple-600">410</div>
-            <div className="text-sm text-gray-600">Gone</div>
-            <div className="text-xs text-gray-500">0.0%</div>
-          </div>
-          <div className="text-center">
-            <div className="text-2xl font-bold text-blue-600">429</div>
-            <div className="text-sm text-gray-600">Rate Limited</div>
-            <div className="text-xs text-gray-500">0.0%</div>
-          </div>
-          <div className="text-center">
-            <div className="text-2xl font-bold text-gray-600">Other</div>
-            <div className="text-sm text-gray-600">Various</div>
-            <div className="text-xs text-gray-500">0.0%</div>
-          </div>
-        </div>
-      </div>
-
-      {/* Status Code Visualization */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
         <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-          <h3 className="text-lg font-semibold text-gray-900 mb-4">Status Code Distribution</h3>
-          <ResponsiveContainer width="100%" height={300}>
-            <PieChart>
-              <Pie
-                data={statusCodeData}
-                cx="50%"
-                cy="50%"
-                labelLine={false}
-                label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}
-                outerRadius={80}
-                fill="#8884d8"
-                dataKey="value"
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-sm font-medium text-gray-500">Requests Per Second</p>
+              <h3 className="text-2xl font-bold text-gray-900 mt-1">
+                {metrics?.rps || 0}
+              </h3>
+            </div>
+            <div className="bg-blue-100 p-3 rounded-full">
+              <TrendingUp className="h-6 w-6 text-blue-600" />
+            </div>
+          </div>
+          <div className="mt-4">
+            <div className="h-2 bg-gray-200 rounded-full overflow-hidden">
+              <div
+                className="h-full bg-blue-600 rounded-full"
+                style={{ width: `${Math.min(100, ((metrics?.rps || 0) / 100) * 100)}%` }}
+              ></div>
+            </div>
+          </div>
+        </div>
+
+        <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-sm font-medium text-gray-500">Active Threads</p>
+              <h3 className="text-2xl font-bold text-gray-900 mt-1">
+                {metrics?.active_threads || 0}
+              </h3>
+            </div>
+            <div className="bg-green-100 p-3 rounded-full">
+              <Users className="h-6 w-6 text-green-600" />
+            </div>
+          </div>
+          <div className="mt-4">
+            <div className="h-2 bg-gray-200 rounded-full overflow-hidden">
+              <div
+                className="h-full bg-green-600 rounded-full"
+                style={{ width: `${Math.min(100, ((metrics?.active_threads || 0) / threads) * 100)}%` }}
+              ></div>
+            </div>
+          </div>
+        </div>
+
+        <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-sm font-medium text-gray-500">Avg. Latency (ms)</p>
+              <h3 className="text-2xl font-bold text-gray-900 mt-1">
+                {metrics?.avg_latency || 0}
+              </h3>
+            </div>
+            <div className="bg-yellow-100 p-3 rounded-full">
+              <Clock className="h-6 w-6 text-yellow-600" />
+            </div>
+          </div>
+          <div className="mt-4">
+            <div className="h-2 bg-gray-200 rounded-full overflow-hidden">
+              <div
+                className="h-full bg-yellow-600 rounded-full"
+                style={{ width: `${Math.min(100, ((metrics?.avg_latency || 0) / 1000) * 100)}%` }}
+              ></div>
+            </div>
+          </div>
+        </div>
+
+        <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-sm font-medium text-gray-500">Error Rate (%)</p>
+              <h3 className="text-2xl font-bold text-gray-900 mt-1">
+                {metrics?.error_rate ? (metrics.error_rate * 100).toFixed(1) : '0.0'}%
+              </h3>
+            </div>
+            <div className="bg-red-100 p-3 rounded-full">
+              <AlertTriangle className="h-6 w-6 text-red-600" />
+            </div>
+          </div>
+          <div className="mt-4">
+            <div className="h-2 bg-gray-200 rounded-full overflow-hidden">
+              <div
+                className="h-full bg-red-600 rounded-full"
+                style={{ width: `${Math.min(100, ((metrics?.error_rate || 0) * 100))}%` }}
+              ></div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+          <h3 className="text-lg font-semibold text-gray-900 mb-4">Request Rate Over Time</h3>
+          <div className="h-80">
+            <ResponsiveContainer width="100%" height="100%">
+              <BarChart
+                data={metrics?.time_series || []}
+                margin={{ top: 20, right: 30, left: 20, bottom: 5 }}
               >
-                {statusCodeData.map((entry, index) => (
-                  <Cell key={`cell-${index}`} fill={entry.color} />
-                ))}
-              </Pie>
-              <Tooltip />
-            </PieChart>
-          </ResponsiveContainer>
+                <CartesianGrid strokeDasharray="3 3" />
+                <XAxis dataKey="timestamp" />
+                <YAxis />
+                <Tooltip />
+                <Bar dataKey="rps" fill="#3B82F6" />
+              </BarChart>
+            </ResponsiveContainer>
+          </div>
         </div>
 
         <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-          <h3 className="text-lg font-semibold text-gray-900 mb-4">Status Code Breakdown</h3>
-          <ResponsiveContainer width="100%" height={300}>
-            <BarChart data={statusCodeData}>
-              <CartesianGrid strokeDasharray="3 3" />
-              <XAxis dataKey="name" />
-              <YAxis />
-              <Tooltip />
-              <Bar dataKey="value" fill="#3b82f6" />
-            </BarChart>
-          </ResponsiveContainer>
-        </div>
-      </div>
-
-      {/* Load Control Points & Error Monitoring */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
-        {/* Error Rate Trends & Control Points */}
-        <div className="bg-white p-6 rounded-lg shadow-sm border border-gray-200">
-          <h3 className="text-lg font-semibold text-gray-900 mb-4">Load Control Points</h3>
-          
-          {/* Escalation Status */}
-          <div className="mb-4">
-            <div className="flex justify-between items-center mb-2">
-              <span className="text-sm font-medium text-gray-700">Escalation Status:</span>
-              <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
-                metrics?.escalation?.status === 'escalating' ? 'bg-red-100 text-red-800' :
-                metrics?.escalation?.status === 'monitoring' ? 'bg-yellow-100 text-yellow-800' :
-                'bg-green-100 text-green-800'
-              }`}>
-                {metrics?.escalation?.status || 'Stable'}
-              </span>
-            </div>
-            <div className="flex justify-between items-center mb-2">
-              <span className="text-sm font-medium text-gray-700">Resistance Level:</span>
-              <span className="text-sm text-gray-900">{metrics?.resistance?.level || 'Low'}</span>
-            </div>
-            <div className="flex justify-between items-center">
-              <span className="text-sm font-medium text-gray-700">Thread Escalation:</span>
-              <span className="text-sm text-gray-900">{metrics?.escalation?.thread_count || 0} threads</span>
-            </div>
-          </div>
-
-          {/* Error Rate Trends */}
-          <div className="border-t border-gray-200 pt-4">
-            <h4 className="text-sm font-medium text-gray-700 mb-3">Error Rate Trends</h4>
-            <div className="space-y-3">
-              <div>
-                <div className="flex justify-between text-sm mb-1">
-                  <span className="text-gray-600">5xx Server Errors</span>
-                  <span className="font-medium text-red-600">{metrics?.status_codes?.['5xx'] || 0}%</span>
-                </div>
-                <div className="w-full bg-gray-200 rounded-full h-2">
-                  <div 
-                    className={`h-2 rounded-full ${
-                      (metrics?.status_codes?.['5xx'] || 0) > 10 ? 'bg-red-600' :
-                      (metrics?.status_codes?.['5xx'] || 0) > 5 ? 'bg-yellow-600' : 'bg-green-600'
-                    }`}
-                    style={{width: `${Math.min(metrics?.status_codes?.['5xx'] || 0, 100)}%`}}
-                  ></div>
-                </div>
-              </div>
-              <div>
-                <div className="flex justify-between text-sm mb-1">
-                  <span className="text-gray-600">4xx Client Errors</span>
-                  <span className="font-medium text-yellow-600">{metrics?.status_codes?.['4xx'] || 0}%</span>
-                </div>
-                <div className="w-full bg-gray-200 rounded-full h-2">
-                  <div 
-                    className={`h-2 rounded-full ${
-                      (metrics?.status_codes?.['4xx'] || 0) > 20 ? 'bg-red-600' :
-                      (metrics?.status_codes?.['4xx'] || 0) > 10 ? 'bg-yellow-600' : 'bg-green-600'
-                    }`}
-                    style={{width: `${Math.min(metrics?.status_codes?.['4xx'] || 0, 100)}%`}}
-                  ></div>
-                </div>
-              </div>
-              <div>
-                <div className="flex justify-between text-sm mb-1">
-                  <span className="text-gray-600">Timeout Rate</span>
-                  <span className="font-medium text-gray-600">{metrics?.detailed_codes?.['timeout'] || 0}%</span>
-                </div>
-                <div className="w-full bg-gray-200 rounded-full h-2">
-                  <div 
-                    className={`h-2 rounded-full ${
-                      (metrics?.detailed_codes?.['timeout'] || 0) > 15 ? 'bg-red-600' :
-                      (metrics?.detailed_codes?.['timeout'] || 0) > 5 ? 'bg-yellow-600' : 'bg-green-600'
-                    }`}
-                    style={{width: `${Math.min(metrics?.detailed_codes?.['timeout'] || 0, 100)}%`}}
-                  ></div>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          {/* Control Point Indicators */}
-          <div className="border-t border-gray-200 pt-4 mt-4">
-            <h4 className="text-sm font-medium text-gray-700 mb-2">Control Point Triggers</h4>
-            <div className="grid grid-cols-2 gap-2 text-xs">
-              <div className={`p-2 rounded ${
-                (metrics?.status_codes?.['5xx'] || 0) > 10 ? 'bg-red-100 text-red-800' : 'bg-gray-100 text-gray-600'
-              }`}>
-                5xx &gt; 10%: {(metrics?.status_codes?.['5xx'] || 0) > 10 ? 'TRIGGERED' : 'Normal'}
-              </div>
-              <div className={`p-2 rounded ${
-                (metrics?.status_codes?.['4xx'] || 0) > 20 ? 'bg-yellow-100 text-yellow-800' : 'bg-gray-100 text-gray-600'
-              }`}>
-                4xx &gt; 20%: {(metrics?.status_codes?.['4xx'] || 0) > 20 ? 'TRIGGERED' : 'Normal'}
-              </div>
-              <div className={`p-2 rounded ${
-                (metrics?.detailed_codes?.['524'] || 0) > 5 ? 'bg-red-100 text-red-800' : 'bg-gray-100 text-gray-600'
-              }`}>
-                524 &gt; 5%: {(metrics?.detailed_codes?.['524'] || 0) > 5 ? 'TRIGGERED' : 'Normal'}
-              </div>
-              <div className={`p-2 rounded ${
-                (metrics?.detailed_codes?.['timeout'] || 0) > 15 ? 'bg-red-100 text-red-800' : 'bg-gray-100 text-gray-600'
-              }`}>
-                Timeout &gt; 15%: {(metrics?.detailed_codes?.['timeout'] || 0) > 15 ? 'TRIGGERED' : 'Normal'}
-              </div>
-            </div>
-          </div>
-        </div>
-
-        {/* Real-time Error Code Graph */}
-        <div className="bg-white p-6 rounded-lg shadow-sm border border-gray-200">
-          <h3 className="text-lg font-semibold text-gray-900 mb-4">5xx/4xx Error Distribution</h3>
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-4">
-            <div className="text-center">
-              <div className="text-2xl font-bold text-green-600">{metrics?.status_codes?.['2xx'] || 85}%</div>
-              <div className="text-sm text-gray-600">2xx Success</div>
-              <div className="w-full bg-gray-200 rounded-full h-2 mt-1">
-                <div className="bg-green-600 h-2 rounded-full" style={{width: `${metrics?.status_codes?.['2xx'] || 85}%`}}></div>
-              </div>
-            </div>
-            <div className="text-center">
-              <div className="text-2xl font-bold text-yellow-600">{metrics?.status_codes?.['4xx'] || 8}%</div>
-              <div className="text-sm text-gray-600">4xx Client</div>
-              <div className="w-full bg-gray-200 rounded-full h-2 mt-1">
-                <div className="bg-yellow-600 h-2 rounded-full" style={{width: `${metrics?.status_codes?.['4xx'] || 8}%`}}></div>
-              </div>
-            </div>
-            <div className="text-center">
-              <div className="text-2xl font-bold text-red-600">{metrics?.status_codes?.['5xx'] || 6}%</div>
-              <div className="text-sm text-gray-600">5xx Server</div>
-              <div className="w-full bg-gray-200 rounded-full h-2 mt-1">
-                <div className="bg-red-600 h-2 rounded-full" style={{width: `${metrics?.status_codes?.['5xx'] || 6}%`}}></div>
-              </div>
-            </div>
-            <div className="text-center">
-              <div className="text-2xl font-bold text-gray-600">{metrics?.status_codes?.['other'] || 1}%</div>
-              <div className="text-sm text-gray-600">Other</div>
-              <div className="w-full bg-gray-200 rounded-full h-2 mt-1">
-                <div className="bg-gray-600 h-2 rounded-full" style={{width: `${metrics?.status_codes?.['other'] || 1}%`}}></div>
-              </div>
-            </div>
-          </div>
-          
-          {/* Detailed Error Breakdown */}
-          <div className="border-t border-gray-200 pt-4">
-            <h4 className="text-sm font-medium text-gray-700 mb-2">Critical Error Codes</h4>
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-2 text-xs">
-              <div className="flex justify-between">
-                <span className="text-gray-600">403 Forbidden:</span>
-                <span className="font-medium">{metrics?.detailed_codes?.['403'] || 5}%</span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-gray-600">404 Not Found:</span>
-                <span className="font-medium">{metrics?.detailed_codes?.['404'] || 3}%</span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-gray-600">503 Service:</span>
-                <span className="font-medium">{metrics?.detailed_codes?.['503'] || 4}%</span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-gray-600">524 Timeout:</span>
-                <span className="font-medium">{metrics?.detailed_codes?.['524'] || 2}%</span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-gray-600">502 Bad Gateway:</span>
-                <span className="font-medium">{metrics?.detailed_codes?.['502'] || 1}%</span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-gray-600">429 Rate Limit:</span>
-                <span className="font-medium">{metrics?.detailed_codes?.['429'] || 0}%</span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-gray-600">Connection:</span>
-                <span className="font-medium">{metrics?.detailed_codes?.['timeout'] || 2}%</span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-gray-600">DNS Errors:</span>
-                <span className="font-medium">{metrics?.detailed_codes?.['dns'] || 0}%</span>
-              </div>
-            </div>
+          <h3 className="text-lg font-semibold text-gray-900 mb-4">Status Code Distribution</h3>
+          <div className="h-80 flex items-center justify-center">
+            {metrics ? (
+              <ResponsiveContainer width="100%" height="100%">
+                <PieChart>
+                  <Pie
+                    data={statusCodeData}
+                    cx="50%"
+                    cy="50%"
+                    labelLine={false}
+                    outerRadius={80}
+                    fill="#8884d8"
+                    dataKey="value"
+                    label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}
+                  >
+                    {statusCodeData.map((entry, index) => (
+                      <Cell key={`cell-${index}`} fill={entry.color} />
+                    ))}
+                  </Pie>
+                  <Tooltip />
+                </PieChart>
+              </ResponsiveContainer>
+            ) : (
+              <div className="text-gray-500">No data available</div>
+            )}
           </div>
         </div>
       </div>
 
-      {/* Last Targets Section */}
       <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-        <h3 className="text-lg font-semibold text-gray-900 mb-4">Last Targets</h3>
+        <h3 className="text-lg font-semibold text-gray-900 mb-4">Active Runs</h3>
         <div className="overflow-x-auto">
           <table className="min-w-full divide-y divide-gray-200">
             <thead className="bg-gray-50">
               <tr>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Group ID
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Status
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Duration
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Targets
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Started
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Top Errors
-                </th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Group ID</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Targets</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Duration</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Started</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
               </tr>
             </thead>
             <tbody className="bg-white divide-y divide-gray-200">
-              {(groupRuns || []).slice(0, 10).map((run) => (
-                <tr key={run.group_id} className="hover:bg-gray-50">
-                  <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
-                    {run.group_id}
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
-                      run.status === 'running' ? 'bg-blue-100 text-blue-800' :
-                      run.status === 'completed' ? 'bg-green-100 text-green-800' :
-                      'bg-red-100 text-red-800'
-                    }`}>
-                      {run.status}
-                    </span>
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                    {run.duration}s
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                    {run.targets_count}
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                    {new Date(run.started_at).toLocaleString()}
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                    {(run.top_errors || []).slice(0, 2).join(', ')}
+              {groupRuns.filter(run => run.status === 'running').length > 0 ? (
+                groupRuns.filter(run => run.status === 'running').map((run) => (
+                  <tr key={run.group_id} className="hover:bg-gray-50">
+                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+                      {run.group_id}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                      <div className="flex flex-wrap gap-1">
+                        <span className="inline-block bg-blue-100 text-blue-800 text-xs px-2 py-1 rounded">
+                          {run.targets_count} targets
+                        </span>
+                      </div>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <span className="inline-flex px-2 py-1 text-xs font-semibold rounded-full bg-green-100 text-green-800">
+                        {run.status}
+                      </span>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                      {Math.floor(run.duration / 3600)}h {Math.floor((run.duration % 3600) / 60)}m
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                      {new Date(run.started_at).toLocaleString()}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                      <button 
+                        onClick={() => handleStopAttack(run.group_id)}
+                        className="bg-red-600 text-white px-3 py-1 rounded-md hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-500"
+                      >
+                        Stop Attack
+                      </button>
+                    </td>
+                  </tr>
+                ))
+              ) : (
+                <tr>
+                  <td colSpan={6} className="px-6 py-4 text-center text-gray-500">
+                    No active runs
                   </td>
                 </tr>
-              ))}
+              )}
             </tbody>
           </table>
         </div>
@@ -885,97 +339,99 @@ const Dashboard: React.FC = () => {
       case 'runs':
         return (
           <div className="space-y-6">
-            <div className="flex justify-between items-center">
-              <h3 className="text-lg font-semibold text-gray-900">Launch History & Active Runs</h3>
-              <button className="bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500">
-                Export History
-              </button>
-            </div>
-            <div className="overflow-x-auto">
-              <table className="min-w-full divide-y divide-gray-200">
-                <thead className="bg-gray-50">
-                  <tr>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Group ID</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Targets</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Duration</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Result</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Started</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
-                  </tr>
-                </thead>
-                <tbody className="bg-white divide-y divide-gray-200">
-                  {groupRuns.length > 0 ? (
-                    groupRuns.map((run) => (
-                      <tr key={run.group_id} className="hover:bg-gray-50">
-                        <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
-                          {run.group_id}
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                          <div className="flex flex-wrap gap-1">
-                            <span className="inline-block bg-blue-100 text-blue-800 text-xs px-2 py-1 rounded">
-                              {run.targets_count} targets
-                            </span>
-                          </div>
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap">
-                          <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
-                            run.status === 'running' ? 'bg-green-100 text-green-800' :
-                            run.status === 'completed' ? 'bg-blue-100 text-blue-800' :
-                            'bg-red-100 text-red-800'
-                          }`}>
-                            {run.status}
-                          </span>
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                          {Math.floor(run.duration / 3600)}h {Math.floor((run.duration % 3600) / 60)}m
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                          {(run.top_errors || []).slice(0, 3).map((error, i) => (
-                            <span key={i} className={`inline-block text-xs px-2 py-1 rounded mr-1 ${
-                              error === '200' ? 'bg-green-100 text-green-800' :
-                              error === '404' ? 'bg-yellow-100 text-yellow-800' :
-                              error === '503' || error === '524' ? 'bg-red-100 text-red-800' :
-                              'bg-gray-100 text-gray-800'
+            <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+              <div className="flex justify-between items-center mb-4">
+                <h3 className="text-lg font-semibold text-gray-900">Launch History & Active Runs</h3>
+                <button className="bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500">
+                  Export History
+                </button>
+              </div>
+              <div className="overflow-x-auto">
+                <table className="min-w-full divide-y divide-gray-200">
+                  <thead className="bg-gray-50">
+                    <tr>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Group ID</th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Targets</th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Duration</th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Result</th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Started</th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody className="bg-white divide-y divide-gray-200">
+                    {groupRuns.length > 0 ? (
+                      groupRuns.map((run) => (
+                        <tr key={run.group_id} className="hover:bg-gray-50">
+                          <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+                            {run.group_id}
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                            <div className="flex flex-wrap gap-1">
+                              <span className="inline-block bg-blue-100 text-blue-800 text-xs px-2 py-1 rounded">
+                                {run.targets_count} targets
+                              </span>
+                            </div>
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap">
+                            <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
+                              run.status === 'running' ? 'bg-green-100 text-green-800' :
+                              run.status === 'completed' ? 'bg-blue-100 text-blue-800' :
+                              'bg-red-100 text-red-800'
                             }`}>
-                              {error}
+                              {run.status}
                             </span>
-                          ))}
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                          {new Date(run.started_at).toLocaleString()}
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                          <button className="text-blue-600 hover:text-blue-900 mr-3">
-                            Download Report
-                          </button>
-                          {run.status === 'running' ? (
-                            <button 
-                              onClick={() => handleStopAttack(run.group_id)}
-                              className="bg-red-600 text-white px-3 py-1 rounded-md hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-500"
-                            >
-                              Stop Attack
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                            {Math.floor(run.duration / 3600)}h {Math.floor((run.duration % 3600) / 60)}m
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                            {(run.top_errors || []).slice(0, 3).map((error, i) => (
+                              <span key={i} className={`inline-block text-xs px-2 py-1 rounded mr-1 ${
+                                error === '200' ? 'bg-green-100 text-green-800' :
+                                error === '404' ? 'bg-yellow-100 text-yellow-800' :
+                                error === '503' || error === '524' ? 'bg-red-100 text-red-800' :
+                                'bg-gray-100 text-gray-800'
+                              }`}>
+                                {error}
+                              </span>
+                            ))}
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                            {new Date(run.started_at).toLocaleString()}
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                            <button className="text-blue-600 hover:text-blue-900 mr-3">
+                              Download Report
                             </button>
-                          ) : (
-                            <button 
-                              onClick={() => handleStartAttack(run.group_id)}
-                              className="bg-green-600 text-white px-3 py-1 rounded-md hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-green-500"
-                            >
-                              Start Attack
-                            </button>
-                          )}
+                            {run.status === 'running' ? (
+                              <button 
+                                onClick={() => handleStopAttack(run.group_id)}
+                                className="bg-red-600 text-white px-3 py-1 rounded-md hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-500"
+                              >
+                                Stop Attack
+                              </button>
+                            ) : (
+                              <button 
+                                onClick={() => handleStartAttack(run.group_id)}
+                                className="bg-green-600 text-white px-3 py-1 rounded-md hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-green-500"
+                              >
+                                Start Attack
+                              </button>
+                            )}
+                          </td>
+                        </tr>
+                      ))
+                    ) : (
+                      <tr>
+                        <td colSpan={7} className="px-6 py-4 text-center text-gray-500">
+                          No launch history available
                         </td>
                       </tr>
-                    ))
-                  ) : (
-                    <tr>
-                      <td colSpan={7} className="px-6 py-4 text-center text-gray-500">
-                        No launch history available
-                      </td>
-                    </tr>
-                  )}
-                </tbody>
-              </table>
+                    )}
+                  </tbody>
+                </table>
+              </div>
             </div>
           </div>
         );
@@ -1068,6 +524,34 @@ const Dashboard: React.FC = () => {
           <span className="text-sm text-gray-600">
             {metricsError ? 'System Error' : metrics ? 'System Online' : 'Connecting...'}
           </span>
+        </div>
+      </div>
+
+      {/* BATTLE ATTACK CONTROLS - UNLIMITED MODE */}
+      <div className="bg-gradient-to-r from-red-600 to-red-800 rounded-lg shadow-lg border border-red-700 p-6 text-white">
+        <h3 className="text-xl font-bold mb-4">🚀 BATTLE ATTACK CONTROLS - UNLIMITED MODE</h3>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div>
+            <button 
+              onClick={() => handleStartAttack('battle_mode')}
+              className="w-full bg-green-600 text-white px-6 py-4 rounded-lg hover:bg-green-700 focus:outline-none focus:ring-4 focus:ring-green-500 font-bold text-lg shadow-lg transform hover:scale-105 transition-all"
+            >
+              ⚡ START MAXIMUM ATTACK (100K+ THREADS)
+            </button>
+          </div>
+          <div>
+            <button 
+              onClick={() => handleStopAttack('all')}
+              className="w-full bg-red-600 text-white px-6 py-4 rounded-lg hover:bg-red-700 focus:outline-none focus:ring-4 focus:ring-red-500 font-bold text-lg shadow-lg transform hover:scale-105 transition-all"
+            >
+              🛑 STOP ALL ATTACKS
+            </button>
+          </div>
+        </div>
+        <div className="mt-4 text-sm opacity-90">
+          <p>⚠️ UNLIMITED MODE ENABLED: 100,000+ threads | 10M+ proxies | 20-30 parallel groups</p>
+          <p>🎯 Target degradation mode: 503/524 errors | Infrastructure attack: DNS + CDN</p>
+          <p>🔄 Advanced methods: HTTP/2 flood, Slowloris, TLS abuse, Crawl &amp; Drown</p>
         </div>
       </div>
 
