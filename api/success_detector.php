@@ -5,6 +5,8 @@ require_once 'database.php';
 class SuccessDetector {
     private $db;
     private $config;
+    private $targetSuccessTimers = [];
+    private $groupSuccessTimers = [];
     
     public function __construct($database, $config = []) {
         $this->db = $database;
@@ -17,8 +19,10 @@ class SuccessDetector {
             'error_rate_threshold' => 0.85,
             'latency_threshold_ms' => 20000,
             'zero_byte_threshold' => 0.5,
-            'permanent_failure_codes' => ['404', '410', '429', '503', '524'],
+            'permanent_failure_codes' => ['404', '410', '503', '524'],
             'protection_codes' => ['403', '429'],
+            'success_threshold' => 0.75,
+            'success_duration_seconds' => 300,
             'consecutive_failures_required' => 10,
             'time_window_seconds' => 300
         ];
@@ -40,6 +44,19 @@ class SuccessDetector {
         $disabledReasons = [];
         
         $permanentFailureRate = $this->calculatePermanentFailureRate($metrics);
+        $successRate = $this->calculateSuccessRate($metrics);
+        
+        if ($successRate >= $this->config['success_threshold']) {
+            $this->updateSuccessTimer($targetUrl, $successRate);
+            
+            if ($this->hasMetSuccessDuration($targetUrl)) {
+                $disabledReasons[] = "success_condition_met: {$successRate} for {$this->config['success_duration_seconds']}s";
+                $this->logMessage("Target disabled due to sustained success condition: {$successRate} for {$this->config['success_duration_seconds']}s");
+            }
+        } else {
+            $this->resetSuccessTimer($targetUrl);
+        }
+        
         if ($permanentFailureRate > $this->config['error_rate_threshold']) {
             $disabledReasons[] = "permanent_failure_rate: {$permanentFailureRate}";
             $this->logMessage("Target disabled due to high permanent failure rate: {$permanentFailureRate}");
@@ -75,9 +92,12 @@ class SuccessDetector {
             'reasons' => $disabledReasons,
             'protection_rate' => $protectionRate,
             'permanent_failure_rate' => $permanentFailureRate,
+            'success_rate' => $successRate,
             'zero_byte_rate' => $zeroByteRate,
             'avg_latency' => $highLatency['avg_latency'] ?? 0,
             'requests_analyzed' => $totalRequests,
+            'success_timer_active' => isset($this->targetSuccessTimers[$targetUrl]),
+            'success_duration_remaining' => $this->getSuccessDurationRemaining($targetUrl),
             'timestamp' => time()
         ];
     }
@@ -94,6 +114,20 @@ class SuccessDetector {
         }
         
         return $permanentFailures / $totalRequests;
+    }
+    
+    private function calculateSuccessRate($metrics) {
+        $totalRequests = $metrics['total_requests'] ?? 0;
+        if ($totalRequests === 0) return 0;
+        
+        $successResponses = 0;
+        $statusCodes = $metrics['status_codes'] ?? [];
+        
+        foreach ($this->config['permanent_failure_codes'] as $code) {
+            $successResponses += $statusCodes[$code] ?? 0;
+        }
+        
+        return $successResponses / $totalRequests;
     }
     
     private function calculateProtectionRate($metrics) {
@@ -238,6 +272,17 @@ class SuccessDetector {
             $results[$target] = $analysis;
         }
         
+        $allTargetsDisabled = ($disabledCount === count($targets));
+        
+        if ($allTargetsDisabled) {
+            $this->updateGroupSuccessTimer($groupId);
+            if ($this->hasGroupMetSuccessDuration($groupId)) {
+                $this->logMessage("ALL TARGETS DISABLED for group $groupId - AUTO-STOP condition met");
+            }
+        } else {
+            $this->resetGroupSuccessTimer($groupId);
+        }
+        
         return [
             'group_id' => $groupId,
             'total_targets' => count($targets),
@@ -245,6 +290,9 @@ class SuccessDetector {
             'protected_targets' => $protectionCount,
             'active_targets' => count($targets) - $disabledCount,
             'target_analysis' => $results,
+            'all_targets_disabled' => $allTargetsDisabled,
+            'auto_stop_ready' => $allTargetsDisabled && $this->hasGroupMetSuccessDuration($groupId),
+            'group_success_timer_remaining' => $this->getGroupSuccessDurationRemaining($groupId),
             'timestamp' => time()
         ];
     }
@@ -285,6 +333,75 @@ class SuccessDetector {
             'reason' => 'target_disabled',
             'escalation_factor' => 0
         ];
+    }
+    
+    private function updateSuccessTimer($targetUrl, $successRate) {
+        if (!isset($this->targetSuccessTimers[$targetUrl])) {
+            $this->targetSuccessTimers[$targetUrl] = time();
+            $this->logMessage("Started success timer for target: $targetUrl (success rate: $successRate)");
+        }
+    }
+    
+    private function resetSuccessTimer($targetUrl) {
+        if (isset($this->targetSuccessTimers[$targetUrl])) {
+            unset($this->targetSuccessTimers[$targetUrl]);
+            $this->logMessage("Reset success timer for target: $targetUrl");
+        }
+    }
+    
+    private function hasMetSuccessDuration($targetUrl) {
+        if (!isset($this->targetSuccessTimers[$targetUrl])) {
+            return false;
+        }
+        
+        $elapsed = time() - $this->targetSuccessTimers[$targetUrl];
+        return $elapsed >= $this->config['success_duration_seconds'];
+    }
+    
+    private function getSuccessDurationRemaining($targetUrl) {
+        if (!isset($this->targetSuccessTimers[$targetUrl])) {
+            return 0;
+        }
+        
+        $elapsed = time() - $this->targetSuccessTimers[$targetUrl];
+        return max(0, $this->config['success_duration_seconds'] - $elapsed);
+    }
+    
+    private function updateGroupSuccessTimer($groupId) {
+        if (!isset($this->groupSuccessTimers[$groupId])) {
+            $this->groupSuccessTimers[$groupId] = time();
+            $this->logMessage("Started group success timer for: $groupId - ALL TARGETS DISABLED");
+        }
+    }
+    
+    private function resetGroupSuccessTimer($groupId) {
+        if (isset($this->groupSuccessTimers[$groupId])) {
+            unset($this->groupSuccessTimers[$groupId]);
+            $this->logMessage("Reset group success timer for: $groupId");
+        }
+    }
+    
+    private function hasGroupMetSuccessDuration($groupId) {
+        if (!isset($this->groupSuccessTimers[$groupId])) {
+            return false;
+        }
+        
+        $elapsed = time() - $this->groupSuccessTimers[$groupId];
+        return $elapsed >= $this->config['success_duration_seconds'];
+    }
+    
+    private function getGroupSuccessDurationRemaining($groupId) {
+        if (!isset($this->groupSuccessTimers[$groupId])) {
+            return 0;
+        }
+        
+        $elapsed = time() - $this->groupSuccessTimers[$groupId];
+        return max(0, $this->config['success_duration_seconds'] - $elapsed);
+    }
+    
+    public function shouldAutoStop($groupId, $targets) {
+        $analysis = $this->analyzeGroupTargets($groupId, $targets);
+        return $analysis['auto_stop_ready'];
     }
     
     private function logMessage($message) {

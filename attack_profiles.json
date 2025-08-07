@@ -67,6 +67,124 @@
     }
   },
   "behavior_profiles": {
+    "power": {
+      "name": "Power Attack Profile",
+      "description": "Maximum intensity attack with aggressive resource consumption",
+      "request_patterns": [
+        "rapid_fire_requests",
+        "large_payload_uploads", 
+        "resource_intensive_queries",
+        "concurrent_session_creation",
+        "memory_exhaustion_attacks",
+        "cpu_intensive_operations"
+      ],
+      "user_agents": [
+        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+        "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+        "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+      ],
+      "headers": {
+        "Connection": "close",
+        "Cache-Control": "no-cache",
+        "Accept-Encoding": "gzip, deflate, br",
+        "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8",
+        "Accept-Language": "en-US,en;q=0.5"
+      },
+      "human_behavior": {
+        "enabled": true,
+        "click_patterns": ["aggressive_clicking", "rapid_navigation", "form_flooding"],
+        "scroll_behavior": ["fast_scroll", "jump_scroll", "continuous_scroll"],
+        "wait_times": {"min": 50, "max": 200},
+        "interaction_intensity": "maximum"
+      },
+      "cookie_management": {
+        "per_thread_cookies": true,
+        "cookie_rotation": true,
+        "session_persistence": false,
+        "cookie_jar_size": 1000
+      },
+      "escalation_factor": 2.0,
+      "thread_scaling": {"min": 500, "max": 20000, "increment": 1000}
+    },
+    "scanner": {
+      "name": "Scanner Profile",
+      "description": "Systematic scanning and probing behavior",
+      "request_patterns": [
+        "systematic_path_scanning",
+        "vulnerability_probing",
+        "endpoint_enumeration",
+        "parameter_fuzzing",
+        "directory_traversal_attempts",
+        "injection_testing"
+      ],
+      "user_agents": [
+        "Mozilla/5.0 (compatible; SecurityScanner/1.0)",
+        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119.0.0.0 Safari/537.36",
+        "Mozilla/5.0 (X11; Ubuntu; Linux x86_64; rv:109.0) Gecko/20100101 Firefox/119.0"
+      ],
+      "headers": {
+        "Connection": "keep-alive",
+        "Cache-Control": "no-cache",
+        "Accept": "*/*",
+        "Accept-Language": "en-US,en;q=0.9",
+        "X-Forwarded-For": "randomized"
+      },
+      "human_behavior": {
+        "enabled": true,
+        "click_patterns": ["methodical_clicking", "link_following", "form_interaction"],
+        "scroll_behavior": ["systematic_scroll", "page_analysis", "content_inspection"],
+        "wait_times": {"min": 100, "max": 500},
+        "interaction_intensity": "moderate"
+      },
+      "cookie_management": {
+        "per_thread_cookies": true,
+        "cookie_rotation": false,
+        "session_persistence": true,
+        "cookie_jar_size": 500
+      },
+      "escalation_factor": 1.5,
+      "thread_scaling": {"min": 500, "max": 15000, "increment": 750}
+    },
+    "mobile": {
+      "name": "Mobile Device Profile",
+      "description": "Mobile device simulation with touch interactions",
+      "request_patterns": [
+        "mobile_app_requests",
+        "touch_gesture_simulation",
+        "mobile_viewport_requests",
+        "app_api_calls",
+        "mobile_resource_loading",
+        "responsive_content_requests"
+      ],
+      "user_agents": [
+        "Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Mobile/15E148 Safari/604.1",
+        "Mozilla/5.0 (Linux; Android 13; SM-G991B) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Mobile Safari/537.36",
+        "Mozilla/5.0 (iPad; CPU OS 17_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Mobile/15E148 Safari/604.1"
+      ],
+      "headers": {
+        "Connection": "keep-alive",
+        "Cache-Control": "max-age=0",
+        "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8",
+        "Accept-Language": "en-US,en;q=0.9",
+        "Accept-Encoding": "gzip, deflate",
+        "Upgrade-Insecure-Requests": "1"
+      },
+      "human_behavior": {
+        "enabled": true,
+        "click_patterns": ["touch_taps", "swipe_gestures", "pinch_zoom"],
+        "scroll_behavior": ["mobile_scroll", "flick_scroll", "momentum_scroll"],
+        "wait_times": {"min": 200, "max": 800},
+        "interaction_intensity": "natural"
+      },
+      "cookie_management": {
+        "per_thread_cookies": true,
+        "cookie_rotation": true,
+        "session_persistence": true,
+        "cookie_jar_size": 200
+      },
+      "escalation_factor": 1.3,
+      "thread_scaling": {"min": 500, "max": 12000, "increment": 500}
+    },
     "aggressive_overload": {
       "request_patterns": [
         "rapid_fire_requests",

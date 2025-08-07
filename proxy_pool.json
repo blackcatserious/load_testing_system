@@ -1,0 +1,215 @@
+{
+  "proxy_pools": {
+    "US": [
+      {
+        "ip": "192.168.1.100",
+        "port": 8080,
+        "type": "http",
+        "username": "",
+        "password": "",
+        "geolocation": "US",
+        "city": "New York",
+        "provider": "datacenter",
+        "speed_rating": 9,
+        "anonymity_level": "high",
+        "last_tested": "2025-08-07T15:20:00Z",
+        "success_rate": 95.2,
+        "active": true
+      },
+      {
+        "ip": "10.0.1.50",
+        "port": 3128,
+        "type": "https",
+        "username": "",
+        "password": "",
+        "geolocation": "US",
+        "city": "Los Angeles",
+        "provider": "residential",
+        "speed_rating": 8,
+        "anonymity_level": "elite",
+        "last_tested": "2025-08-07T15:18:00Z",
+        "success_rate": 92.8,
+        "active": true
+      },
+      {
+        "ip": "172.16.0.25",
+        "port": 8888,
+        "type": "socks5",
+        "username": "",
+        "password": "",
+        "geolocation": "US",
+        "city": "Chicago",
+        "provider": "datacenter",
+        "speed_rating": 9,
+        "anonymity_level": "high",
+        "last_tested": "2025-08-07T15:15:00Z",
+        "success_rate": 97.1,
+        "active": true
+      }
+    ],
+    "EU": [
+      {
+        "ip": "185.220.100.240",
+        "port": 8080,
+        "type": "http",
+        "username": "",
+        "password": "",
+        "geolocation": "EU",
+        "city": "Amsterdam",
+        "provider": "datacenter",
+        "speed_rating": 8,
+        "anonymity_level": "high",
+        "last_tested": "2025-08-07T15:22:00Z",
+        "success_rate": 94.5,
+        "active": true
+      },
+      {
+        "ip": "46.101.50.75",
+        "port": 3128,
+        "type": "https",
+        "username": "",
+        "password": "",
+        "geolocation": "EU",
+        "city": "London",
+        "provider": "residential",
+        "speed_rating": 7,
+        "anonymity_level": "elite",
+        "last_tested": "2025-08-07T15:19:00Z",
+        "success_rate": 89.3,
+        "active": true
+      },
+      {
+        "ip": "195.154.200.15",
+        "port": 1080,
+        "type": "socks5",
+        "username": "",
+        "password": "",
+        "geolocation": "EU",
+        "city": "Frankfurt",
+        "provider": "datacenter",
+        "speed_rating": 9,
+        "anonymity_level": "high",
+        "last_tested": "2025-08-07T15:17:00Z",
+        "success_rate": 96.7,
+        "active": true
+      }
+    ],
+    "RU": [
+      {
+        "ip": "95.213.200.100",
+        "port": 8080,
+        "type": "http",
+        "username": "",
+        "password": "",
+        "geolocation": "RU",
+        "city": "Moscow",
+        "provider": "datacenter",
+        "speed_rating": 8,
+        "anonymity_level": "high",
+        "last_tested": "2025-08-07T15:21:00Z",
+        "success_rate": 93.8,
+        "active": true
+      },
+      {
+        "ip": "178.154.200.50",
+        "port": 3128,
+        "type": "https",
+        "username": "",
+        "password": "",
+        "geolocation": "RU",
+        "city": "St. Petersburg",
+        "provider": "residential",
+        "speed_rating": 7,
+        "anonymity_level": "elite",
+        "last_tested": "2025-08-07T15:16:00Z",
+        "success_rate": 91.2,
+        "active": true
+      }
+    ],
+    "CN": [
+      {
+        "ip": "114.55.100.200",
+        "port": 8080,
+        "type": "http",
+        "username": "",
+        "password": "",
+        "geolocation": "CN",
+        "city": "Beijing",
+        "provider": "datacenter",
+        "speed_rating": 6,
+        "anonymity_level": "medium",
+        "last_tested": "2025-08-07T15:14:00Z",
+        "success_rate": 87.5,
+        "active": true
+      },
+      {
+        "ip": "47.254.150.75",
+        "port": 1080,
+        "type": "socks5",
+        "username": "",
+        "password": "",
+        "geolocation": "CN",
+        "city": "Shanghai",
+        "provider": "datacenter",
+        "speed_rating": 7,
+        "anonymity_level": "high",
+        "last_tested": "2025-08-07T15:13:00Z",
+        "success_rate": 90.1,
+        "active": true
+      }
+    ],
+    "MIXED": [
+      {
+        "ip": "203.0.113.10",
+        "port": 8080,
+        "type": "http",
+        "username": "",
+        "password": "",
+        "geolocation": "MIXED",
+        "city": "Global",
+        "provider": "rotating",
+        "speed_rating": 8,
+        "anonymity_level": "elite",
+        "last_tested": "2025-08-07T15:23:00Z",
+        "success_rate": 95.0,
+        "active": true
+      },
+      {
+        "ip": "198.51.100.25",
+        "port": 3128,
+        "type": "https",
+        "username": "",
+        "password": "",
+        "geolocation": "MIXED",
+        "city": "Global",
+        "provider": "rotating",
+        "speed_rating": 9,
+        "anonymity_level": "elite",
+        "last_tested": "2025-08-07T15:23:00Z",
+        "success_rate": 97.3,
+        "active": true
+      }
+    ]
+  },
+  "pool_metadata": {
+    "last_updated": "2025-08-07T15:23:12Z",
+    "total_proxies": 12,
+    "active_proxies": 12,
+    "geolocation_distribution": {
+      "US": 3,
+      "EU": 3,
+      "RU": 2,
+      "CN": 2,
+      "MIXED": 2
+    },
+    "type_distribution": {
+      "http": 5,
+      "https": 4,
+      "socks5": 3
+    },
+    "average_success_rate": 93.2,
+    "rotation_interval": 60,
+    "auto_refresh": true,
+    "health_check_interval": 300
+  }
+}

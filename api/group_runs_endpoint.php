@@ -10,10 +10,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
 }
 
 require_once 'database.php';
-require_once 'stealth_engine.php';
-require_once 'client_profile.php';
-require_once 'tls_profile.php';
-require_once 'proxy_manager.php';
+require_once 'stealth_engine_class.php';
+require_once 'client_profile_class.php';
+require_once 'tls_profile_class.php';
+require_once 'proxy_manager_class.php';
+require_once 'continuous_adaptive_orchestrator.php';
 
 function logMessage($message) {
     $logFile = '/home/ftcceelg/load_testing_system/logs/backend.log';
@@ -533,6 +534,153 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 echo json_encode([
                     'success' => false,
                     'error' => 'Database error'
+                ]);
+            }
+            exit();
+            
+        case 'start_continuous_adaptive':
+            $targets = $data['targets'] ?? [];
+            $profileId = $data['profile_id'] ?? 'continuous-adaptive';
+            $threads = $data['threads'] ?? 500;
+            $duration = $data['duration'] ?? -1;
+            $engine = $data['engine'] ?? 'auto-bypass';
+            $behaviorProfileId = $data['behavior_profile_id'] ?? 'power';
+            
+            $stealthProfile = $data['stealth_profile'] ?? 'maximum';
+            $attackMethod = $data['attack_method'] ?? 'continuous-adaptive';
+            $proxyProfile = $data['proxy_profile'] ?? 'rotating';
+            $userAgentRotation = $data['user_agent_rotation'] ?? true;
+            $ja3Rotation = $data['ja3_rotation'] ?? true;
+            $tlsRotation = $data['tls_rotation'] ?? true;
+            $proxyRotation = $data['proxy_rotation'] ?? true;
+            $spoofHeaders = $data['spoof_headers'] ?? true;
+            $escalation = $data['escalation'] ?? true;
+            $concurrents = $data['concurrents'] ?? 'unlimited';
+            
+            if (empty($targets)) {
+                logMessage("ERROR: No targets provided for continuous adaptive start");
+                echo json_encode([
+                    'success' => false,
+                    'error' => 'No targets provided'
+                ]);
+                exit();
+            }
+            
+            $groupId = 'continuous_adaptive_' . uniqid();
+            
+            try {
+                $orchestratorConfig = [
+                    'threads' => $threads,
+                    'duration' => $duration,
+                    'stealth_enabled' => true,
+                    'proxy_rotation' => $proxyRotation,
+                    'ua_rotation' => $userAgentRotation,
+                    'ja3_rotation' => $ja3Rotation,
+                    'tls_rotation' => $tlsRotation,
+                    'escalation_enabled' => $escalation,
+                    'max_threads' => 20000,
+                    'evolution_interval' => 60,
+                    'success_threshold' => 0.75,
+                    'behavior_profile' => $behaviorProfileId,
+                    'stealth_profile' => $stealthProfile
+                ];
+                
+                $orchestrator = new ContinuousAdaptiveOrchestrator($db, $orchestratorConfig);
+                
+                $db->insertGroup($groupId, $targets, $profileId, $threads, $duration, $engine, $behaviorProfileId);
+                
+                logMessage("Starting continuous adaptive attack: $groupId with " . count($targets) . " targets, unlimited mode: $concurrents");
+                
+                $reportsDir = '/home/ftcceelg/load_testing_system/reports';
+                if (!is_dir($reportsDir)) {
+                    mkdir($reportsDir, 0755, true);
+                }
+                
+                $orchestrator->start($targets, $groupId, $behaviorProfileId);
+                
+                logMessage("Continuous adaptive orchestrator started successfully for group: $groupId");
+                
+                echo json_encode([
+                    'success' => true,
+                    'group_id' => $groupId,
+                    'mode' => 'continuous-adaptive',
+                    'targets' => $targets,
+                    'threads' => $threads,
+                    'duration' => $duration === -1 ? 'infinite' : $duration,
+                    'escalation' => $escalation,
+                    'concurrents' => $concurrents,
+                    'stealth_config' => [
+                        'stealth_profile' => $stealthProfile,
+                        'attack_method' => $attackMethod,
+                        'proxy_profile' => $proxyProfile,
+                        'user_agent_rotation' => $userAgentRotation,
+                        'ja3_rotation' => $ja3Rotation,
+                        'tls_rotation' => $tlsRotation,
+                        'proxy_rotation' => $proxyRotation,
+                        'spoof_headers' => $spoofHeaders
+                    ],
+                    'message' => 'Continuous adaptive attack started successfully with unlimited capabilities'
+                ]);
+                
+            } catch (Exception $e) {
+                logMessage("ERROR starting continuous adaptive attack: " . $e->getMessage());
+                echo json_encode([
+                    'success' => false,
+                    'error' => 'Failed to start continuous adaptive attack: ' . $e->getMessage()
+                ]);
+            }
+            exit();
+            
+        case 'stop_continuous_adaptive':
+            $groupId = $data['group_id'] ?? '';
+            
+            if (empty($groupId)) {
+                logMessage("ERROR: No group ID provided for continuous adaptive stop");
+                echo json_encode([
+                    'success' => false,
+                    'error' => 'No group ID provided'
+                ]);
+                exit();
+            }
+            
+            try {
+                $stopFile = "/tmp/stop_signal_$groupId.flag";
+                file_put_contents($stopFile, time());
+                
+                $db->updateGroupStatus($groupId, 'stopped');
+                $db->updateRunsStatus($groupId, 'stopped');
+                
+                logMessage("Continuous adaptive attack stopped for group: $groupId");
+                
+                $reportsDir = '/home/ftcceelg/load_testing_system/reports';
+                $finalReportFile = $reportsDir . "/continuous_adaptive_{$groupId}_FINAL_" . date('Y-m-d_H-i-s') . ".json";
+                
+                $finalReport = [
+                    'group_id' => $groupId,
+                    'mode' => 'continuous-adaptive',
+                    'stopped_at' => date('Y-m-d H:i:s'),
+                    'stop_method' => 'manual',
+                    'final_status' => 'stopped'
+                ];
+                
+                if (is_dir($reportsDir)) {
+                    file_put_contents($finalReportFile, json_encode($finalReport, JSON_PRETTY_PRINT));
+                }
+                
+                echo json_encode([
+                    'success' => true,
+                    'group_id' => $groupId,
+                    'mode' => 'continuous-adaptive',
+                    'stopped_at' => date('Y-m-d H:i:s'),
+                    'final_report' => $finalReportFile,
+                    'message' => 'Continuous adaptive attack stopped successfully'
+                ]);
+                
+            } catch (Exception $e) {
+                logMessage("ERROR stopping continuous adaptive attack: " . $e->getMessage());
+                echo json_encode([
+                    'success' => false,
+                    'error' => 'Failed to stop continuous adaptive attack: ' . $e->getMessage()
                 ]);
             }
             exit();
