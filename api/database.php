@@ -166,6 +166,15 @@ class Database {
             created_at TEXT DEFAULT CURRENT_TIMESTAMP,
             FOREIGN KEY (run_id) REFERENCES runs(run_id),
             FOREIGN KEY (group_id) REFERENCES groups(group_id)
+        );
+        
+        CREATE TABLE IF NOT EXISTS target_status (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            target_url TEXT UNIQUE NOT NULL,
+            status TEXT NOT NULL DEFAULT 'active',
+            reason TEXT,
+            updated_at TEXT DEFAULT CURRENT_TIMESTAMP,
+            created_at TEXT DEFAULT CURRENT_TIMESTAMP
         );";
         
         $this->pdo->exec($sql);

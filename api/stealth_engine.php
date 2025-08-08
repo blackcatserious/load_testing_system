@@ -4,7 +4,7 @@ header('Access-Control-Allow-Origin: *');
 header('Access-Control-Allow-Methods: GET, POST, PUT, DELETE, OPTIONS');
 header('Access-Control-Allow-Headers: Content-Type, Authorization');
 
-if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
+if (isset($_SERVER['REQUEST_METHOD']) && $_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
     exit(0);
 }
 
@@ -13,8 +13,8 @@ require_once 'client_profile.php';
 require_once 'tls_profile.php';
 require_once 'proxy_manager.php';
 
-function logMessage($message) {
-    $logFile = '/home/ftcceelg/load_testing_system/logs/backend.log';
+function logStealthMessage($message) {
+    $logFile = './logs/backend.log';
     $logDir = dirname($logFile);
     if (!is_dir($logDir)) {
         mkdir($logDir, 0755, true);
@@ -35,9 +35,9 @@ function logStealthActivity($message) {
 
 try {
     $db = new Database();
-    $method = $_SERVER['REQUEST_METHOD'];
+    $method = $_SERVER['REQUEST_METHOD'] ?? 'CLI';
     
-    logMessage("Request received: $method " . $_SERVER['REQUEST_URI']);
+    logStealthMessage("Request received: $method " . ($_SERVER['REQUEST_URI'] ?? 'CLI'));
     
     if ($method === 'GET') {
         $action = $_GET['action'] ?? 'status';
@@ -45,7 +45,7 @@ try {
         switch ($action) {
             case 'status':
                 $status = getStealthEngineStatus($db);
-                logMessage("Retrieved stealth engine status");
+                logStealthMessage("Retrieved stealth engine status");
                 echo json_encode([
                     'success' => true,
                     'stealth_status' => $status
@@ -59,7 +59,7 @@ try {
                 }
                 
                 $stats = $db->getStealthSessionStats($groupId);
-                logMessage("Retrieved stealth session stats for group: $groupId");
+                logStealthMessage("Retrieved stealth session stats for group: $groupId");
                 echo json_encode([
                     'success' => true,
                     'session_stats' => $stats
@@ -69,7 +69,7 @@ try {
             case 'rotation_config':
                 $profileId = $_GET['profile_id'] ?? null;
                 $config = getRotationConfig($db, $profileId);
-                logMessage("Retrieved rotation config for profile: $profileId");
+                logStealthMessage("Retrieved rotation config for profile: $profileId");
                 echo json_encode([
                     'success' => true,
                     'rotation_config' => $config
@@ -105,7 +105,7 @@ try {
                 
                 $result = startStealthSession($db, $groupId, $stealthProfileId, $rotationConfig);
                 
-                logMessage("Started stealth session for group: $groupId with profile: $stealthProfileId");
+                logStealthMessage("Started stealth session for group: $groupId with profile: $stealthProfileId");
                 logStealthActivity("SESSION_START: Group $groupId - Profile $stealthProfileId - Config: " . json_encode($rotationConfig));
                 
                 echo json_encode([
@@ -124,7 +124,7 @@ try {
                 
                 $result = performTrafficRotation($db, $groupId, $rotationType);
                 
-                logMessage("Performed traffic rotation for group: $groupId, type: $rotationType");
+                logStealthMessage("Performed traffic rotation for group: $groupId, type: $rotationType");
                 logStealthActivity("ROTATION: Group $groupId - Type $rotationType - " . json_encode($result));
                 
                 echo json_encode([
@@ -139,7 +139,7 @@ try {
                 
                 $headers = generateSpoofedHeaders($targetUrl, $spoofLevel);
                 
-                logMessage("Generated spoofed headers for target: $targetUrl, level: $spoofLevel");
+                logStealthMessage("Generated spoofed headers for target: $targetUrl, level: $spoofLevel");
                 logStealthActivity("HEADER_SPOOF: Target $targetUrl - Level $spoofLevel - Headers: " . count($headers));
                 
                 echo json_encode([
@@ -158,7 +158,7 @@ try {
                 
                 $result = synchronizeStealthComponents($db, $groupId, $components);
                 
-                logMessage("Synchronized stealth components for group: $groupId");
+                logStealthMessage("Synchronized stealth components for group: $groupId");
                 logStealthActivity("SYNC: Group $groupId - Components: " . implode(',', $components));
                 
                 echo json_encode([
@@ -173,7 +173,7 @@ try {
     }
     
 } catch (Exception $e) {
-    logMessage("Error: " . $e->getMessage());
+    logStealthMessage("Error: " . $e->getMessage());
     http_response_code(500);
     echo json_encode([
         'success' => false,
