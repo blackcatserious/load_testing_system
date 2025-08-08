@@ -1,9 +1,9 @@
 <?php
 
-require_once '../stealth_engine_class.php';
-require_once '../client_profile_class.php';
-require_once '../tls_profile_class.php';
-require_once '../proxy_manager_class.php';
+require_once __DIR__ . '/../stealth_engine_class.php';
+require_once __DIR__ . '/../client_profile_class.php';
+require_once __DIR__ . '/../tls_profile_class.php';
+require_once __DIR__ . '/../proxy_manager.php';
 
 class RawSocketEngine {
     private $config;
@@ -345,7 +345,7 @@ class RawSocketEngine {
     }
     
     private function logMessage($message) {
-        $logFile = '/home/ftcceelg/load_testing_system/logs/backend.log';
+        $logFile = './logs/backend.log';
         $logDir = dirname($logFile);
         if (!is_dir($logDir)) {
             mkdir($logDir, 0755, true);
