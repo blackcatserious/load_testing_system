@@ -174,17 +174,6 @@ class StealthEngine {
         return null;
     }
     
-    private function logStealthActivity($message) {
-        $logFile = '/home/ftcceelg/load_testing_system/logs/stealth_activity.log';
-        $logDir = dirname($logFile);
-        if (!is_dir($logDir)) {
-            mkdir($logDir, 0755, true);
-        }
-        $timestamp = date('Y-m-d H:i:s');
-        file_put_contents($logFile, "[$timestamp] $message\n", FILE_APPEND | LOCK_EX);
-    }
-}
-    
     private function shouldRotateJA3() {
         return (time() - $this->lastJA3Rotation) >= $this->config['ja3_rotation_interval'];
     }

@@ -206,13 +206,9 @@ class SuccessDetector {
         }
         
         try {
-            $stmt = $this->db->prepare("
-                INSERT INTO target_status (target_url, status, reason, updated_at) 
-                VALUES (?, ?, ?, NOW())
-                ON DUPLICATE KEY UPDATE 
-                status = VALUES(status), 
-                reason = VALUES(reason), 
-                updated_at = VALUES(updated_at)
+            $stmt = $this->db->getPDO()->prepare("
+                INSERT OR REPLACE INTO target_status (target_url, status, reason, updated_at) 
+                VALUES (?, ?, ?, datetime('now'))
             ");
             
             $stmt->execute([$targetUrl, $status, $reason]);
@@ -231,7 +227,7 @@ class SuccessDetector {
         }
         
         try {
-            $stmt = $this->db->prepare("
+            $stmt = $this->db->getPDO()->prepare("
                 SELECT status, reason, updated_at 
                 FROM target_status 
                 WHERE target_url = ? 

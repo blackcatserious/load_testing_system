@@ -4,13 +4,13 @@ header('Access-Control-Allow-Origin: *');
 header('Access-Control-Allow-Methods: GET, POST, PUT, DELETE, OPTIONS');
 header('Access-Control-Allow-Headers: Content-Type, Authorization');
 
-if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
+if (isset($_SERVER['REQUEST_METHOD']) && $_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
     exit(0);
 }
 
 require_once 'database.php';
 
-function logMessage($message) {
+function logClientProfileMessage($message) {
     $logFile = '/home/ftcceelg/load_testing_system/logs/backend.log';
     $logDir = dirname($logFile);
     if (!is_dir($logDir)) {
@@ -22,9 +22,9 @@ function logMessage($message) {
 
 try {
     $db = new Database();
-    $method = $_SERVER['REQUEST_METHOD'];
+    $method = $_SERVER['REQUEST_METHOD'] ?? 'CLI';
     
-    logMessage("Request received: $method " . $_SERVER['REQUEST_URI']);
+    logClientProfileMessage("Request received: $method " . ($_SERVER['REQUEST_URI'] ?? 'CLI'));
     
     if ($method === 'GET') {
         $action = $_GET['action'] ?? 'list';
@@ -32,7 +32,7 @@ try {
         switch ($action) {
             case 'list':
                 $profiles = $db->getAllStealthProfiles();
-                logMessage("Retrieved " . count($profiles) . " stealth profiles");
+                logClientProfileMessage("Retrieved " . count($profiles) . " stealth profiles");
                 echo json_encode([
                     'success' => true,
                     'profiles' => $profiles
@@ -54,7 +54,7 @@ try {
                 $profile['ja3_fingerprints'] = json_decode($profile['ja3_fingerprints'], true);
                 $profile['tls_configs'] = json_decode($profile['tls_configs'], true);
                 
-                logMessage("Retrieved stealth profile: " . $profile['profile_name']);
+                logClientProfileMessage("Retrieved stealth profile: " . $profile['profile_name']);
                 echo json_encode([
                     'success' => true,
                     'profile' => $profile
@@ -64,7 +64,7 @@ try {
             case 'random_ua':
                 $count = $_GET['count'] ?? 1;
                 $userAgents = getRandomUserAgents($count);
-                logMessage("Generated $count random User-Agents");
+                logClientProfileMessage("Generated $count random User-Agents");
                 echo json_encode([
                     'success' => true,
                     'user_agents' => $userAgents
@@ -105,7 +105,7 @@ try {
                 $result = $db->insertStealthProfile($profileName, $userAgents, $ja3Fingerprints, $tlsConfigs);
                 
                 if ($result) {
-                    logMessage("Created stealth profile: $profileName with " . count($userAgents) . " User-Agents");
+                    logClientProfileMessage("Created stealth profile: $profileName with " . count($userAgents) . " User-Agents");
                     echo json_encode([
                         'success' => true,
                         'message' => 'Stealth profile created successfully',
@@ -127,7 +127,7 @@ try {
                     return !empty(trim($ua)) && strpos($ua, 'Mozilla') !== false;
                 });
                 
-                logMessage("Imported " . count($userAgents) . " User-Agents from file: $filePath");
+                logClientProfileMessage("Imported " . count($userAgents) . " User-Agents from file: $filePath");
                 echo json_encode([
                     'success' => true,
                     'user_agents' => array_values($userAgents),
@@ -141,7 +141,7 @@ try {
     }
     
 } catch (Exception $e) {
-    logMessage("Error: " . $e->getMessage());
+    logClientProfileMessage("Error: " . $e->getMessage());
     http_response_code(500);
     echo json_encode([
         'success' => false,

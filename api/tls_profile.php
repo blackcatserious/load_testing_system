@@ -4,13 +4,13 @@ header('Access-Control-Allow-Origin: *');
 header('Access-Control-Allow-Methods: GET, POST, PUT, DELETE, OPTIONS');
 header('Access-Control-Allow-Headers: Content-Type, Authorization');
 
-if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
+if (isset($_SERVER['REQUEST_METHOD']) && $_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
     exit(0);
 }
 
 require_once 'database.php';
 
-function logMessage($message) {
+function logTLSProfileMessage($message) {
     $logFile = '/home/ftcceelg/load_testing_system/logs/backend.log';
     $logDir = dirname($logFile);
     if (!is_dir($logDir)) {
@@ -22,9 +22,9 @@ function logMessage($message) {
 
 try {
     $db = new Database();
-    $method = $_SERVER['REQUEST_METHOD'];
+    $method = $_SERVER['REQUEST_METHOD'] ?? 'CLI';
     
-    logMessage("Request received: $method " . $_SERVER['REQUEST_URI']);
+    logMessage("Request received: $method " . ($_SERVER['REQUEST_URI'] ?? 'CLI'));
     
     if ($method === 'GET') {
         $action = $_GET['action'] ?? 'list';
