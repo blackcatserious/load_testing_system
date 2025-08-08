@@ -66,9 +66,9 @@ class ContinuousAdaptiveOrchestrator {
         
         try {
             $this->successDetector = new SuccessDetector($database);
-            $this->logMessage("SuccessDetector initialized successfully");
+            $this->logOrchestratorMessage("SuccessDetector initialized successfully");
         } catch (Exception $e) {
-            $this->logMessage("WARNING: SuccessDetector initialization failed: " . $e->getMessage());
+            $this->logOrchestratorMessage("WARNING: SuccessDetector initialization failed: " . $e->getMessage());
             $this->successDetector = null;
         }
         
@@ -82,7 +82,7 @@ class ContinuousAdaptiveOrchestrator {
         $this->isRunning = false;
         $this->stopRequested = false;
         
-        $this->logMessage("ContinuousAdaptiveOrchestrator initialized with simplified dependencies");
+        $this->logOrchestratorMessage("ContinuousAdaptiveOrchestrator initialized with simplified dependencies");
     }
     
     public function getDefaultConfig() {
@@ -112,8 +112,8 @@ class ContinuousAdaptiveOrchestrator {
         $this->isRunning = true;
         $this->stopRequested = false;
         
-        $this->logMessage("Starting Continuous-Adaptive Attack - Group: $groupId, Targets: " . count($targets));
-        $this->logMessage("Initial configuration: Threads={$this->currentThreads}, Evolution interval={$this->config['evolution_interval']}s");
+        $this->logOrchestratorMessage("Starting Continuous-Adaptive Attack - Group: $groupId, Targets: " . count($targets));
+        $this->logOrchestratorMessage("Initial configuration: Threads={$this->currentThreads}, Evolution interval={$this->config['evolution_interval']}s");
         
         $this->initializeComponents();
         $this->selectInitialEngine();
@@ -123,16 +123,16 @@ class ContinuousAdaptiveOrchestrator {
     
     public function stop() {
         $this->stopRequested = true;
-        $this->logMessage("Stop requested for Continuous-Adaptive Attack - Group: {$this->groupId}");
+        $this->logOrchestratorMessage("Stop requested for Continuous-Adaptive Attack - Group: {$this->groupId}");
     }
     
     private function executeMainLoop() {
-        $this->logMessage("Entering main continuous-adaptive loop");
+        $this->logOrchestratorMessage("Entering main continuous-adaptive loop");
         
         while ($this->isRunning && !$this->stopRequested) {
             $cycleStartTime = time();
             
-            $this->logMessage("Evolution Cycle #{$this->evolutionCycle} - Engine: {$this->currentEngine}, Threads: {$this->currentThreads}");
+            $this->logOrchestratorMessage("Evolution Cycle #{$this->evolutionCycle} - Engine: {$this->currentEngine}, Threads: {$this->currentThreads}");
             
             $this->executeEvolutionCycle();
             
@@ -149,7 +149,7 @@ class ContinuousAdaptiveOrchestrator {
             }
             
             if ($this->checkSuccessCondition()) {
-                $this->logMessage("Success condition met - all targets disabled");
+                $this->logOrchestratorMessage("Success condition met - all targets disabled");
                 break;
             }
             
@@ -162,7 +162,7 @@ class ContinuousAdaptiveOrchestrator {
     }
     
     private function executeEvolutionCycle() {
-        $this->logMessage("Executing evolution cycle #{$this->evolutionCycle} with engine: {$this->currentEngine}");
+        $this->logOrchestratorMessage("Executing evolution cycle #{$this->evolutionCycle} with engine: {$this->currentEngine}");
         
         $simulatedResults = [
             'requests_sent' => $this->currentThreads * 10,
@@ -179,11 +179,11 @@ class ContinuousAdaptiveOrchestrator {
         
         $this->processEngineResults($simulatedResults);
         
-        $this->logMessage("Evolution cycle #{$this->evolutionCycle} completed - Threads: {$this->currentThreads}, Engine: {$this->currentEngine}");
+        $this->logOrchestratorMessage("Evolution cycle #{$this->evolutionCycle} completed - Threads: {$this->currentThreads}, Engine: {$this->currentEngine}");
     }
     
     private function evolveStealth() {
-        $this->logMessage("Evolving stealth components");
+        $this->logOrchestratorMessage("Evolving stealth components");
         
         if ($this->config['proxy_rotation']) {
             $this->evolveProxyGeolocation();
@@ -206,7 +206,7 @@ class ContinuousAdaptiveOrchestrator {
         $this->proxyManager->setGeolocationFilter($selectedGeo);
         $this->proxyManager->rotateProxy();
         
-        $this->logMessage("Proxy geolocation evolved to: $selectedGeo");
+        $this->logOrchestratorMessage("Proxy geolocation evolved to: $selectedGeo");
     }
     
     private function evolveEngine() {
@@ -216,7 +216,7 @@ class ContinuousAdaptiveOrchestrator {
             $previousEngine = $this->currentEngine;
             $this->selectNextEngine();
             
-            $this->logMessage("Engine evolved from $previousEngine to {$this->currentEngine} (success rate: {$currentSuccessRate}%)");
+            $this->logOrchestratorMessage("Engine evolved from $previousEngine to {$this->currentEngine} (success rate: {$currentSuccessRate}%)");
         }
     }
     
@@ -228,7 +228,7 @@ class ContinuousAdaptiveOrchestrator {
     
     private function selectInitialEngine() {
         $this->currentEngine = $this->availableEngines[0];
-        $this->logMessage("Initial engine selected: {$this->currentEngine}");
+        $this->logOrchestratorMessage("Initial engine selected: {$this->currentEngine}");
     }
     
     private function escalateThreads() {
@@ -240,7 +240,7 @@ class ContinuousAdaptiveOrchestrator {
         // );
         
         if ($newThreads > $this->currentThreads) {
-            $this->logMessage("Escalating threads from {$this->currentThreads} to $newThreads");
+            $this->logOrchestratorMessage("Escalating threads from {$this->currentThreads} to $newThreads");
             $this->currentThreads = $newThreads;
         }
     }
@@ -275,11 +275,11 @@ class ContinuousAdaptiveOrchestrator {
         $successRate = ($disabledTargets / $totalTargets) * 100;
         
         if ($successRate >= 100) {
-            $this->logMessage("All targets disabled - success condition met");
+            $this->logOrchestratorMessage("All targets disabled - success condition met");
             return true;
         }
         
-        $this->logMessage("Success progress: $disabledTargets/$totalTargets targets disabled ({$successRate}%)");
+        $this->logOrchestratorMessage("Success progress: $disabledTargets/$totalTargets targets disabled ({$successRate}%)");
         return false;
     }
     
@@ -298,7 +298,7 @@ class ContinuousAdaptiveOrchestrator {
     }
     
     private function processEngineResults($results) {
-        $this->logMessage("Processing engine results for cycle #{$this->evolutionCycle}");
+        $this->logOrchestratorMessage("Processing engine results for cycle #{$this->evolutionCycle}");
         
         $this->saveEvolutionReport($results);
         $this->updateTargetStatuses($results);
@@ -356,7 +356,7 @@ class ContinuousAdaptiveOrchestrator {
         $waitTime = max(0, $this->config['evolution_interval'] - $cycleElapsed);
         
         if ($waitTime > 0) {
-            $this->logMessage("Waiting {$waitTime}s for next evolution cycle");
+            $this->logOrchestratorMessage("Waiting {$waitTime}s for next evolution cycle");
             sleep($waitTime);
         }
     }
@@ -380,27 +380,32 @@ class ContinuousAdaptiveOrchestrator {
         $this->ensureDirectoryExists(dirname($reportFile));
         file_put_contents($reportFile, json_encode($finalReport, JSON_PRETTY_PRINT));
         
-        $this->logMessage("Continuous-Adaptive Attack completed - Final report saved");
+        $this->logOrchestratorMessage("Continuous-Adaptive Attack completed - Final report saved");
         
         return $finalReport;
     }
     
     private function initializeComponents() {
-        $this->logMessage("Initializing continuous-adaptive components");
+        $this->logOrchestratorMessage("Initializing continuous-adaptive components");
         
         try {
             if ($this->config['stealth_enabled']) {
-                $this->logMessage("Stealth engine initialization skipped for testing");
+                $this->stealthEngine = new StealthEngine();
+                $this->logOrchestratorMessage("Stealth engine initialized successfully");
             }
             
             if ($this->config['proxy_rotation']) {
-                $this->logMessage("Proxy manager initialization skipped for testing");
+                $this->proxyManager = new ProxyManager();
+                $this->proxyManager->loadProxies();
+                $this->logOrchestratorMessage("Proxy manager initialized with " . $this->proxyManager->getProxyCount() . " proxies");
             }
             
-            $this->logMessage("Client and TLS profile initialization skipped for testing");
-            $this->logMessage("All components initialized successfully");
+            $this->clientProfile = new ClientProfile();
+            $this->tlsProfile = new TLSProfile();
+            $this->logOrchestratorMessage("Client and TLS profiles initialized successfully");
+            $this->logOrchestratorMessage("All components initialized successfully");
         } catch (Exception $e) {
-            $this->logMessage("ERROR initializing components: " . $e->getMessage());
+            $this->logOrchestratorMessage("ERROR initializing components: " . $e->getMessage());
         }
     }
     
@@ -432,12 +437,12 @@ class ContinuousAdaptiveOrchestrator {
         }
     }
     
-    private function logMessage($message) {
+    private function logOrchestratorMessage($message) {
         if (!$this->config['logging_enabled']) {
             return;
         }
         
-        $logFile = '/home/ftcceelg/load_testing_system/logs/backend.log';
+        $logFile = './logs/backend.log';
         $this->ensureDirectoryExists(dirname($logFile));
         
         $timestamp = date('Y-m-d H:i:s');
