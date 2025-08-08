@@ -662,7 +662,7 @@ class Bypassv2Engine {
     }
     
     private function logMessage($message) {
-        $logFile = '/home/ftcceelg/load_testing_system/logs/backend.log';
+        $logFile = './logs/backend.log';
         $logDir = dirname($logFile);
         if (!is_dir($logDir)) {
             mkdir($logDir, 0755, true);
