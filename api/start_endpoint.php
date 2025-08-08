@@ -10,10 +10,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
 }
 
 require_once 'database.php';
-require_once 'stealth_engine.php';
-require_once 'client_profile.php';
-require_once 'tls_profile.php';
-require_once 'proxy_manager.php';
+require_once 'stealth_engine_class.php';
+require_once 'client_profile_class.php';
+require_once 'tls_profile_class.php';
+require_once 'proxy_manager_class.php';
 
 function logMessage($message) {
     $logFile = '/home/ftcceelg/load_testing_system/logs/backend.log';

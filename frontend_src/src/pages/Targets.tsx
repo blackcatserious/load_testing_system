@@ -27,7 +27,6 @@ const Targets: React.FC = () => {
   });
   const [bulkTargets, setBulkTargets] = useState('');
   const [isLoading, setIsLoading] = useState(true);
-  const [editingTarget, setEditingTarget] = useState<string | null>(null);
   const [unlimitedMode, setUnlimitedMode] = useState(true);
   const [showBulkImport, setShowBulkImport] = useState(false);
 
@@ -418,7 +417,7 @@ const Targets: React.FC = () => {
                 <option value="slowloris">Slowloris</option>
                 <option value="tls-flood">TLS Flood</option>
                 <option value="http2-flood">HTTP/2 Flood</option>
-                <option value="crawl-drown">Crawl & Drown</option>
+                <option value="crawl-drown">Crawl &amp; Drown</option>
               </select>
             </div>
             <div>
