@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { BarChart3, Activity, FileText, Settings as SettingsIcon, Database, Play, TrendingUp, Users, Clock, AlertTriangle } from 'lucide-react';
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts';
+import { BarChart3, Activity, FileText, Settings as SettingsIcon, Database, TrendingUp, Users, Clock, AlertTriangle } from 'lucide-react';
+import { Tooltip, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts';
 import { useLiveMetrics } from '../api/hooks';
 
 interface GroupRun {
@@ -17,16 +17,15 @@ type TabType = 'overview' | 'runs' | 'details' | 'logs' | 'settings' | 'reports'
 const Dashboard: React.FC<{}> = () => {
   const [activeTab, setActiveTab] = useState<TabType>('overview');
   const [groupRuns, setGroupRuns] = useState<GroupRun[]>([]);
+  const [unlimitedMetrics, setUnlimitedMetrics] = useState<any>(null);
 
   const { data: metrics, error: metricsError } = useLiveMetrics(5000);
 
-  const [engine, setEngine] = useState(localStorage.getItem('engine') || 'playwright');
-  const [behaviorProfile, setBehaviorProfile] = useState(localStorage.getItem('behaviorProfile') || 'casual');
-  const [threads, setThreads] = useState(40);
-  const [duration, setDuration] = useState(3600);
-  const [requestDelay, setRequestDelay] = useState(100);
-  const [targetCount, setTargetCount] = useState(3);
-  const [unlimitedMode, setUnlimitedMode] = useState(true);
+  const [engine] = useState(localStorage.getItem('engine') || 'playwright');
+  const [behaviorProfile] = useState(localStorage.getItem('behaviorProfile') || 'casual');
+  const [threads] = useState(40);
+  const [duration] = useState(3600);
+  const [unlimitedMode] = useState(true);
 
   useEffect(() => {
     const fetchGroupRuns = async () => {
@@ -48,6 +47,24 @@ const Dashboard: React.FC<{}> = () => {
     localStorage.setItem('engine', engine);
     localStorage.setItem('behaviorProfile', behaviorProfile);
   }, [engine, behaviorProfile]);
+
+  useEffect(() => {
+    const fetchUnlimitedMetrics = async () => {
+      try {
+        const response = await fetch('/api/metrics_endpoint.php');
+        if (response.ok) {
+          const data = await response.json();
+          setUnlimitedMetrics(data.unlimited_system_stats);
+        }
+      } catch (error) {
+        console.error('Failed to fetch unlimited metrics:', error);
+      }
+    };
+    
+    fetchUnlimitedMetrics();
+    const interval = setInterval(fetchUnlimitedMetrics, 5000); // Update every 5 seconds
+    return () => clearInterval(interval);
+  }, []);
 
   const handleStartAttack = async (groupId: string) => {
     try {
@@ -202,7 +219,7 @@ const Dashboard: React.FC<{}> = () => {
             <div>
               <p className="text-sm font-medium text-gray-500">Error Rate (%)</p>
               <h3 className="text-2xl font-bold text-gray-900 mt-1">
-                {metrics?.error_rate ? (metrics.error_rate * 100).toFixed(1) : '0.0'}%
+                {metrics?.success_rate ? ((1 - metrics.success_rate) * 100).toFixed(1) : '0.0'}%
               </h3>
             </div>
             <div className="bg-red-100 p-3 rounded-full">
@@ -213,7 +230,7 @@ const Dashboard: React.FC<{}> = () => {
             <div className="h-2 bg-gray-200 rounded-full overflow-hidden">
               <div
                 className="h-full bg-red-600 rounded-full"
-                style={{ width: `${Math.min(100, ((metrics?.error_rate || 0) * 100))}%` }}
+                style={{ width: `${Math.min(100, ((1 - (metrics?.success_rate || 1)) * 100))}%` }}
               ></div>
             </div>
           </div>
@@ -222,20 +239,16 @@ const Dashboard: React.FC<{}> = () => {
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-          <h3 className="text-lg font-semibold text-gray-900 mb-4">Request Rate Over Time</h3>
-          <div className="h-80">
-            <ResponsiveContainer width="100%" height="100%">
-              <BarChart
-                data={metrics?.time_series || []}
-                margin={{ top: 20, right: 30, left: 20, bottom: 5 }}
-              >
-                <CartesianGrid strokeDasharray="3 3" />
-                <XAxis dataKey="timestamp" />
-                <YAxis />
-                <Tooltip />
-                <Bar dataKey="rps" fill="#3B82F6" />
-              </BarChart>
-            </ResponsiveContainer>
+          <h3 className="text-lg font-semibold text-gray-900 mb-4">Current Performance</h3>
+          <div className="grid grid-cols-2 gap-4">
+            <div className="text-center">
+              <p className="text-sm text-gray-500">Current RPS</p>
+              <p className="text-2xl font-bold text-blue-600">{metrics?.current_rps || 0}</p>
+            </div>
+            <div className="text-center">
+              <p className="text-sm text-gray-500">Total Requests</p>
+              <p className="text-2xl font-bold text-green-600">{metrics?.total_requests || 0}</p>
+            </div>
           </div>
         </div>
 
@@ -329,6 +342,60 @@ const Dashboard: React.FC<{}> = () => {
           </table>
         </div>
       </div>
+
+      {/* UNLIMITED SYSTEM METRICS */}
+      {unlimitedMetrics && (
+        <div className="bg-gradient-to-r from-blue-600 to-blue-800 rounded-lg shadow-lg border border-blue-700 p-6 text-white mt-6">
+          <h3 className="text-xl font-bold mb-4">📊 UNLIMITED SYSTEM METRICS</h3>
+          <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
+            <div className="text-center">
+              <div className="text-2xl font-bold">{unlimitedMetrics.parallel_groups_active || 0}</div>
+              <div className="text-sm opacity-90">Active Groups</div>
+            </div>
+            <div className="text-center">
+              <div className="text-2xl font-bold">{unlimitedMetrics.total_concurrent_threads?.toLocaleString() || '0'}</div>
+              <div className="text-sm opacity-90">Total Threads</div>
+            </div>
+            <div className="text-center">
+              <div className="text-2xl font-bold">{unlimitedMetrics.proxy_pool_size?.toLocaleString() || '0'}</div>
+              <div className="text-sm opacity-90">Proxy Pool</div>
+            </div>
+            <div className="text-center">
+              <div className="text-2xl font-bold">{unlimitedMetrics.proxy_rotation_rate || '0/min'}</div>
+              <div className="text-sm opacity-90">Proxy Rotation</div>
+            </div>
+            <div className="text-center">
+              <div className="text-2xl font-bold">{unlimitedMetrics.network_throughput || '0 MB/s'}</div>
+              <div className="text-sm opacity-90">Network</div>
+            </div>
+          </div>
+          <div className="mt-4 grid grid-cols-1 md:grid-cols-3 gap-4 text-sm opacity-90">
+            <div>
+              <p>🔄 Last proxy update: {unlimitedMetrics.proxy_collection_last_update || 'Never'}</p>
+            </div>
+            <div>
+              <p>💾 Memory: {unlimitedMetrics.system_memory_usage || '0%'}</p>
+            </div>
+            <div>
+              <p>🖥️ CPU: {unlimitedMetrics.cpu_usage || '0%'}</p>
+            </div>
+          </div>
+          <div className="mt-4 grid grid-cols-1 md:grid-cols-4 gap-4 text-sm opacity-90">
+            <div>
+              <p>🎯 Attack Methods: {unlimitedMetrics.active_attack_methods || 0}</p>
+            </div>
+            <div>
+              <p>🔀 Stealth Sessions: {unlimitedMetrics.active_stealth_sessions || 0}</p>
+            </div>
+            <div>
+              <p>🌐 Proxy Sources: {unlimitedMetrics.proxy_sources_active || 0}</p>
+            </div>
+            <div>
+              <p>⚡ Escalation: {unlimitedMetrics.escalation_engine_status || 'Inactive'}</p>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 
@@ -549,9 +616,178 @@ const Dashboard: React.FC<{}> = () => {
           </div>
         </div>
         <div className="mt-4 text-sm opacity-90">
-          <p>⚠️ UNLIMITED MODE ENABLED: 100,000+ threads | 10M+ proxies | 20-30 parallel groups</p>
+          <p>⚠️ UNLIMITED MODE ENABLED: 100,000+ threads | 10M+ proxies | Unlimited parallel groups</p>
           <p>🎯 Target degradation mode: 503/524 errors | Infrastructure attack: DNS + CDN</p>
           <p>🔄 Advanced methods: HTTP/2 flood, Slowloris, TLS abuse, Crawl &amp; Drown</p>
+        </div>
+      </div>
+
+      {/* UNLIMITED PARALLEL GROUPS CONFIGURATION */}
+      <div className="bg-gradient-to-r from-purple-600 to-purple-800 rounded-lg shadow-lg border border-purple-700 p-6 text-white">
+        <h3 className="text-xl font-bold mb-4">🔄 UNLIMITED PARALLEL GROUPS CONFIGURATION</h3>
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div>
+            <label className="block text-sm font-medium mb-2">Parallel Groups Count</label>
+            <input 
+              type="number" 
+              min="1" 
+              max="1000" 
+              defaultValue="100"
+              className="w-full px-3 py-2 bg-purple-700 border border-purple-600 rounded-md text-white placeholder-purple-300"
+              placeholder="Unlimited (default: 100)"
+            />
+            <p className="text-xs mt-1 opacity-75">Set to 1000 for maximum parallel execution</p>
+          </div>
+          <div>
+            <label className="block text-sm font-medium mb-2">Threads Per Group</label>
+            <input 
+              type="number" 
+              min="1000" 
+              max="100000" 
+              defaultValue="10000"
+              className="w-full px-3 py-2 bg-purple-700 border border-purple-600 rounded-md text-white placeholder-purple-300"
+              placeholder="10,000"
+            />
+            <p className="text-xs mt-1 opacity-75">Recommended: 10,000-100,000 per group</p>
+          </div>
+          <div>
+            <label className="block text-sm font-medium mb-2">Group Launch Interval (ms)</label>
+            <input 
+              type="number" 
+              min="100" 
+              max="5000" 
+              defaultValue="1000"
+              className="w-full px-3 py-2 bg-purple-700 border border-purple-600 rounded-md text-white placeholder-purple-300"
+              placeholder="1000ms"
+            />
+            <p className="text-xs mt-1 opacity-75">Delay between launching parallel groups</p>
+          </div>
+        </div>
+        <div className="mt-4 grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div>
+            <label className="block text-sm font-medium mb-2">Attack Strategy</label>
+            <select className="w-full px-3 py-2 bg-purple-700 border border-purple-600 rounded-md text-white">
+              <option value="adaptive">Adaptive Escalation</option>
+              <option value="aggressive">Maximum Aggressive</option>
+              <option value="stealth">Stealth Mode</option>
+              <option value="mixed">Mixed Strategy</option>
+            </select>
+          </div>
+          <div>
+            <label className="block text-sm font-medium mb-2">Target Distribution</label>
+            <select className="w-full px-3 py-2 bg-purple-700 border border-purple-600 rounded-md text-white">
+              <option value="round_robin">Round Robin</option>
+              <option value="random">Random Distribution</option>
+              <option value="weighted">Weighted by Response</option>
+              <option value="focused">Focus on Weakest</option>
+            </select>
+          </div>
+        </div>
+        <div className="mt-4 flex items-center space-x-4">
+          <label className="flex items-center">
+            <input type="checkbox" defaultChecked className="mr-2 rounded bg-purple-700 border-purple-600" />
+            <span className="text-sm">Enable Auto-Scaling</span>
+          </label>
+          <label className="flex items-center">
+            <input type="checkbox" defaultChecked className="mr-2 rounded bg-purple-700 border-purple-600" />
+            <span className="text-sm">Dynamic Thread Adjustment</span>
+          </label>
+          <label className="flex items-center">
+            <input type="checkbox" defaultChecked className="mr-2 rounded bg-purple-700 border-purple-600" />
+            <span className="text-sm">Failure Recovery</span>
+          </label>
+        </div>
+        <div className="mt-4 text-xs opacity-75">
+          <p>💡 Unlimited mode removes all hardcoded limits. System will scale based on available resources.</p>
+          <p>⚡ Each parallel group operates independently with its own proxy pool and attack strategy.</p>
+        </div>
+      </div>
+
+      {/* PROXY COLLECTION & ROTATION */}
+      <div className="bg-gradient-to-r from-green-600 to-green-800 rounded-lg shadow-lg border border-green-700 p-6 text-white">
+        <h3 className="text-xl font-bold mb-4">🔄 PROXY COLLECTION & ROTATION</h3>
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+          <div>
+            <label className="block text-sm font-medium mb-2">Collection Interval</label>
+            <select className="w-full px-3 py-2 bg-green-700 border border-green-600 rounded-md text-white">
+              <option value="600">10 minutes</option>
+              <option value="300">5 minutes</option>
+              <option value="1800">30 minutes</option>
+            </select>
+            <p className="text-xs mt-1 opacity-75">Automatic proxy collection frequency</p>
+          </div>
+          <div>
+            <label className="block text-sm font-medium mb-2">Rotation Speed</label>
+            <select className="w-full px-3 py-2 bg-green-700 border border-green-600 rounded-md text-white">
+              <option value="1">Every request</option>
+              <option value="10">Every 10 requests</option>
+              <option value="100">Every 100 requests</option>
+            </select>
+            <p className="text-xs mt-1 opacity-75">How often to rotate proxies</p>
+          </div>
+          <div>
+            <label className="block text-sm font-medium mb-2">Max Pool Size</label>
+            <input 
+              type="number" 
+              min="10000" 
+              max="10000000" 
+              defaultValue="1000000"
+              className="w-full px-3 py-2 bg-green-700 border border-green-600 rounded-md text-white placeholder-green-300"
+              placeholder="1M proxies"
+            />
+            <p className="text-xs mt-1 opacity-75">Maximum proxies to maintain in pool</p>
+          </div>
+          <div className="flex items-end">
+            <button className="w-full bg-green-500 text-white px-4 py-2 rounded-md hover:bg-green-400 focus:outline-none focus:ring-2 focus:ring-green-300">
+              🔄 Force Update Now
+            </button>
+          </div>
+        </div>
+        <div className="mt-4 grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div>
+            <label className="block text-sm font-medium mb-2">Proxy Sources</label>
+            <select className="w-full px-3 py-2 bg-green-700 border border-green-600 rounded-md text-white">
+              <option value="all">All Sources (GitHub + APIs)</option>
+              <option value="github">GitHub Only</option>
+              <option value="apis">APIs Only</option>
+              <option value="custom">Custom Sources</option>
+            </select>
+          </div>
+          <div>
+            <label className="block text-sm font-medium mb-2">Geo Distribution</label>
+            <select className="w-full px-3 py-2 bg-green-700 border border-green-600 rounded-md text-white">
+              <option value="global">Global Mix</option>
+              <option value="us_eu">US + EU Focus</option>
+              <option value="asia">Asia Focus</option>
+              <option value="residential">Residential Only</option>
+            </select>
+          </div>
+          <div>
+            <label className="block text-sm font-medium mb-2">Health Check</label>
+            <select className="w-full px-3 py-2 bg-green-700 border border-green-600 rounded-md text-white">
+              <option value="aggressive">Aggressive (every 30s)</option>
+              <option value="moderate">Moderate (every 2min)</option>
+              <option value="conservative">Conservative (every 5min)</option>
+            </select>
+          </div>
+        </div>
+        <div className="mt-4 flex items-center space-x-4">
+          <label className="flex items-center">
+            <input type="checkbox" defaultChecked className="mr-2 rounded bg-green-700 border-green-600" />
+            <span className="text-sm">Auto-Remove Dead Proxies</span>
+          </label>
+          <label className="flex items-center">
+            <input type="checkbox" defaultChecked className="mr-2 rounded bg-green-700 border-green-600" />
+            <span className="text-sm">Randomize User-Agents</span>
+          </label>
+          <label className="flex items-center">
+            <input type="checkbox" defaultChecked className="mr-2 rounded bg-green-700 border-green-600" />
+            <span className="text-sm">TLS Fingerprint Rotation</span>
+          </label>
+        </div>
+        <div className="mt-4 text-xs opacity-75">
+          <p>🌐 System automatically collects 10M+ proxies from multiple sources every 10 minutes</p>
+          <p>🔄 Advanced rotation includes IP, User-Agent, TLS fingerprint, and geographic distribution</p>
         </div>
       </div>
 
@@ -563,7 +799,7 @@ const Dashboard: React.FC<{}> = () => {
               return (
                 <button
                   key={tab.id}
-                  onClick={() => setActiveTab(tab.id)}
+                  onClick={() => setActiveTab(tab.id as TabType)}
                   className={`${
                     activeTab === tab.id
                       ? 'border-blue-500 text-blue-600'

@@ -685,6 +685,225 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             }
             exit();
             
+        case 'start_unlimited_groups':
+            $targets = $data['targets'] ?? [];
+            $groupCount = $data['group_count'] ?? 100;
+            $threadsPerGroup = $data['threads_per_group'] ?? 10000;
+            $launchInterval = $data['launch_interval'] ?? 1000;
+            $attackStrategy = $data['attack_strategy'] ?? 'adaptive';
+            $targetDistribution = $data['target_distribution'] ?? 'round_robin';
+            $autoScaling = $data['auto_scaling'] ?? true;
+            $dynamicThreads = $data['dynamic_threads'] ?? true;
+            $failureRecovery = $data['failure_recovery'] ?? true;
+            $stealthProfile = $data['stealth_profile'] ?? 'maximum';
+            $attackMethod = $data['attack_method'] ?? 'unlimited';
+            $proxyProfile = $data['proxy_profile'] ?? 'rotating';
+            $userAgentRotation = $data['user_agent_rotation'] ?? true;
+            $ja3Rotation = $data['ja3_rotation'] ?? true;
+            $tlsRotation = $data['tls_rotation'] ?? true;
+            $proxyRotation = $data['proxy_rotation'] ?? true;
+            $spoofHeaders = $data['spoof_headers'] ?? true;
+            
+            if (empty($targets)) {
+                logMessage("ERROR: No targets provided for unlimited groups start");
+                echo json_encode([
+                    'success' => false,
+                    'error' => 'No targets provided'
+                ]);
+                exit();
+            }
+            
+            try {
+                $groupIds = [];
+                $totalThreads = 0;
+                $stealthEngine = new StealthEngine();
+                $clientProfile = new ClientProfile();
+                $tlsProfile = new TLSProfile();
+                $proxyManager = new ProxyManager();
+                
+                $masterStealthSessionId = $stealthEngine->createSession([
+                    'stealth_level' => $stealthProfile,
+                    'user_agent_rotation' => $userAgentRotation,
+                    'ja3_rotation' => $ja3Rotation,
+                    'tls_rotation' => $tlsRotation,
+                    'proxy_rotation' => $proxyRotation,
+                    'spoof_headers' => $spoofHeaders,
+                    'attack_method' => $attackMethod,
+                    'unlimited_mode' => true
+                ]);
+                
+                logMessage("Starting unlimited groups launch: $groupCount groups, $threadsPerGroup threads each, strategy: $attackStrategy");
+                
+                $reportsDir = '/home/ftcceelg/load_testing_system/reports';
+                if (!is_dir($reportsDir)) {
+                    mkdir($reportsDir, 0755, true);
+                }
+                
+                for ($i = 0; $i < $groupCount; $i++) {
+                    $groupId = 'unlimited_group_' . uniqid() . '_' . $i;
+                    
+                    if ($i > 0 && $launchInterval > 0) {
+                        usleep($launchInterval * 1000);
+                    }
+                    
+                    $groupStealthSessionId = $stealthEngine->createSession([
+                        'stealth_level' => $stealthProfile,
+                        'user_agent_rotation' => $userAgentRotation,
+                        'ja3_rotation' => $ja3Rotation,
+                        'tls_rotation' => $tlsRotation,
+                        'proxy_rotation' => $proxyRotation,
+                        'spoof_headers' => $spoofHeaders,
+                        'attack_method' => $attackMethod,
+                        'parent_session' => $masterStealthSessionId,
+                        'group_index' => $i
+                    ]);
+                    
+                    $db->insertGroup($groupId, $targets, 'unlimited', $threadsPerGroup, -1, 'auto-bypass', 'power');
+                    
+                    $runs = [];
+                    foreach ($targets as $targetIndex => $target) {
+                        $runId = 'unlimited_run_' . uniqid() . '_g' . $i . '_t' . $targetIndex;
+                        
+                        $runStealthSessionId = $stealthEngine->createSession([
+                            'stealth_level' => $stealthProfile,
+                            'user_agent_rotation' => $userAgentRotation,
+                            'ja3_rotation' => $ja3Rotation,
+                            'tls_rotation' => $tlsRotation,
+                            'proxy_rotation' => $proxyRotation,
+                            'spoof_headers' => $spoofHeaders,
+                            'attack_method' => $attackMethod,
+                            'parent_session' => $groupStealthSessionId,
+                            'target_index' => $targetIndex
+                        ]);
+                        
+                        $db->insertRun($runId, $groupId, $target);
+                        
+                        $runs[] = [
+                            'run_id' => $runId,
+                            'target' => $target,
+                            'status' => 'started',
+                            'group_id' => $groupId,
+                            'stealth_session_id' => $runStealthSessionId,
+                            'threads' => $threadsPerGroup
+                        ];
+                    }
+                    
+                    $groupIds[] = [
+                        'group_id' => $groupId,
+                        'group_stealth_session_id' => $groupStealthSessionId,
+                        'runs' => $runs,
+                        'threads' => $threadsPerGroup,
+                        'targets_count' => count($targets),
+                        'group_index' => $i
+                    ];
+                    
+                    $totalThreads += $threadsPerGroup;
+                    
+                    $groupReport = [
+                        'group_id' => $groupId,
+                        'group_index' => $i,
+                        'targets' => $targets,
+                        'threads_per_group' => $threadsPerGroup,
+                        'attack_strategy' => $attackStrategy,
+                        'target_distribution' => $targetDistribution,
+                        'auto_scaling' => $autoScaling,
+                        'dynamic_threads' => $dynamicThreads,
+                        'failure_recovery' => $failureRecovery,
+                        'unlimited_mode' => true,
+                        'master_stealth_session_id' => $masterStealthSessionId,
+                        'group_stealth_session_id' => $groupStealthSessionId,
+                        'stealth_config' => [
+                            'stealth_profile' => $stealthProfile,
+                            'attack_method' => $attackMethod,
+                            'proxy_profile' => $proxyProfile,
+                            'user_agent_rotation' => $userAgentRotation,
+                            'ja3_rotation' => $ja3Rotation,
+                            'tls_rotation' => $tlsRotation,
+                            'proxy_rotation' => $proxyRotation,
+                            'spoof_headers' => $spoofHeaders
+                        ],
+                        'started_at' => date('Y-m-d H:i:s'),
+                        'status' => 'running',
+                        'runs' => $runs
+                    ];
+                    
+                    $groupJsonFile = $reportsDir . '/unlimited_group_' . $groupId . '_' . date('Y-m-d_H-i-s') . '.json';
+                    file_put_contents($groupJsonFile, json_encode($groupReport, JSON_PRETTY_PRINT));
+                    
+                    logMessage("Launched unlimited group $i/$groupCount: $groupId with $threadsPerGroup threads, stealth session: $groupStealthSessionId");
+                }
+                
+                $unlimitedReport = [
+                    'unlimited_launch_id' => 'unlimited_' . uniqid(),
+                    'master_stealth_session_id' => $masterStealthSessionId,
+                    'total_groups' => $groupCount,
+                    'threads_per_group' => $threadsPerGroup,
+                    'total_threads' => $totalThreads,
+                    'launch_interval' => $launchInterval,
+                    'attack_strategy' => $attackStrategy,
+                    'target_distribution' => $targetDistribution,
+                    'auto_scaling' => $autoScaling,
+                    'dynamic_threads' => $dynamicThreads,
+                    'failure_recovery' => $failureRecovery,
+                    'targets' => $targets,
+                    'started_at' => date('Y-m-d H:i:s'),
+                    'status' => 'unlimited_running',
+                    'groups' => $groupIds,
+                    'stealth_config' => [
+                        'stealth_profile' => $stealthProfile,
+                        'attack_method' => $attackMethod,
+                        'proxy_profile' => $proxyProfile,
+                        'user_agent_rotation' => $userAgentRotation,
+                        'ja3_rotation' => $ja3Rotation,
+                        'tls_rotation' => $tlsRotation,
+                        'proxy_rotation' => $proxyRotation,
+                        'spoof_headers' => $spoofHeaders
+                    ]
+                ];
+                
+                $unlimitedReportFile = $reportsDir . '/unlimited_launch_' . date('Y-m-d_H-i-s') . '.json';
+                file_put_contents($unlimitedReportFile, json_encode($unlimitedReport, JSON_PRETTY_PRINT));
+                
+                $unlimitedCsvFile = $reportsDir . '/unlimited_launch_' . date('Y-m-d_H-i-s') . '.csv';
+                $csvData = "group_id,group_index,threads_per_group,targets_count,stealth_session_id,started_at,status\n";
+                foreach ($groupIds as $group) {
+                    $csvData .= "{$group['group_id']},{$group['group_index']},{$group['threads']},{$group['targets_count']},{$group['group_stealth_session_id']}," . date('Y-m-d H:i:s') . ",running\n";
+                }
+                file_put_contents($unlimitedCsvFile, $csvData);
+                
+                logMessage("UNLIMITED GROUPS LAUNCHED: $groupCount groups with total $totalThreads threads, master stealth session: $masterStealthSessionId");
+                
+                echo json_encode([
+                    'success' => true,
+                    'message' => "Launched $groupCount unlimited parallel groups successfully",
+                    'unlimited_launch_id' => $unlimitedReport['unlimited_launch_id'],
+                    'master_stealth_session_id' => $masterStealthSessionId,
+                    'total_groups' => $groupCount,
+                    'threads_per_group' => $threadsPerGroup,
+                    'total_threads' => $totalThreads,
+                    'launch_interval' => $launchInterval,
+                    'attack_strategy' => $attackStrategy,
+                    'target_distribution' => $targetDistribution,
+                    'auto_scaling' => $autoScaling,
+                    'dynamic_threads' => $dynamicThreads,
+                    'failure_recovery' => $failureRecovery,
+                    'group_ids' => array_column($groupIds, 'group_id'),
+                    'groups_detail' => $groupIds,
+                    'stealth_config' => $unlimitedReport['stealth_config'],
+                    'report_file' => $unlimitedReportFile,
+                    'csv_file' => $unlimitedCsvFile,
+                    'unlimited_mode' => true
+                ]);
+                
+            } catch (Exception $e) {
+                logMessage("ERROR starting unlimited groups: " . $e->getMessage());
+                echo json_encode([
+                    'success' => false,
+                    'error' => 'Failed to start unlimited groups: ' . $e->getMessage()
+                ]);
+            }
+            exit();
+            
         default:
             logMessage("ERROR: Unknown action: $action");
             echo json_encode([

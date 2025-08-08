@@ -4,14 +4,14 @@ header('Access-Control-Allow-Origin: *');
 header('Access-Control-Allow-Methods: GET, POST, PUT, DELETE, OPTIONS');
 header('Access-Control-Allow-Headers: Content-Type, Authorization');
 
-if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
+if (isset($_SERVER['REQUEST_METHOD']) && $_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
     exit(0);
 }
 
 require_once 'database.php';
 
 function logMessage($message) {
-    $logFile = '/home/ftcceelg/load_testing_system/logs/backend.log';
+    $logFile = './logs/backend.log';
     $logDir = dirname($logFile);
     if (!is_dir($logDir)) {
         mkdir($logDir, 0755, true);
@@ -21,7 +21,7 @@ function logMessage($message) {
 }
 
 function logProxyStatus($message) {
-    $logFile = '/home/ftcceelg/load_testing_system/logs/proxy_health.log';
+    $logFile = './logs/proxy_health.log';
     $logDir = dirname($logFile);
     if (!is_dir($logDir)) {
         mkdir($logDir, 0755, true);
@@ -32,9 +32,9 @@ function logProxyStatus($message) {
 
 try {
     $db = new Database();
-    $method = $_SERVER['REQUEST_METHOD'];
+    $method = $_SERVER['REQUEST_METHOD'] ?? 'CLI';
     
-    logMessage("Request received: $method " . $_SERVER['REQUEST_URI']);
+    logMessage("Request received: $method " . ($_SERVER['REQUEST_URI'] ?? 'CLI'));
     
     if ($method === 'GET') {
         $action = $_GET['action'] ?? 'stats';
@@ -645,7 +645,7 @@ function getNewProxyAfterBan($db) {
     return !empty($proxies) ? $proxies[0] : null;
 }
 
-function liveReloadProxiesFromFile($db, $filePath = '/home/ftcceelg/load_testing_system/proxy_pool.json') {
+function liveReloadProxiesFromFile($db, $filePath = './proxy_pool.json') {
     if (!file_exists($filePath)) {
         logMessage("WARNING: Proxy pool file not found: $filePath");
         return [
@@ -696,6 +696,210 @@ function liveReloadProxiesFromFile($db, $filePath = '/home/ftcceelg/load_testing
         'imported' => $imported,
         'failed' => $failed,
         'source' => $filePath
+    ];
+}
+
+function scheduleProxyCollection($db) {
+    $lastUpdate = file_exists('/tmp/last_proxy_update') ? 
+        filemtime('/tmp/last_proxy_update') : 0;
+    
+    if ((time() - $lastUpdate) >= 600) { // 10 minutes
+        logMessage("Starting scheduled proxy collection (10-minute interval)");
+        
+        $sources = [
+            [
+                'url' => 'https://api.proxyscrape.com/v2/?request=get&protocol=http&format=json&country=all&ssl=all&anonymity=all',
+                'format' => 'json',
+                'type' => 'api'
+            ],
+            [
+                'url' => 'https://raw.githubusercontent.com/clarketm/proxy-list/master/proxy-list-raw.txt',
+                'format' => 'text',
+                'type' => 'github'
+            ],
+            [
+                'url' => 'https://raw.githubusercontent.com/TheSpeedX/PROXY-List/master/http.txt',
+                'format' => 'text', 
+                'type' => 'github'
+            ],
+            [
+                'url' => 'https://raw.githubusercontent.com/monosans/proxy-list/main/proxies/http.txt',
+                'format' => 'text',
+                'type' => 'github'
+            ],
+            [
+                'url' => 'https://raw.githubusercontent.com/proxy4parsing/proxy-list/main/http.txt',
+                'format' => 'text',
+                'type' => 'github'
+            ]
+        ];
+        
+        $totalImported = 0;
+        $totalFailed = 0;
+        $successfulSources = 0;
+        
+        foreach ($sources as $source) {
+            try {
+                logMessage("Collecting proxies from: " . $source['url']);
+                
+                $context = stream_context_create([
+                    'http' => [
+                        'timeout' => 30,
+                        'user_agent' => 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
+                    ]
+                ]);
+                
+                $data = file_get_contents($source['url'], false, $context);
+                
+                if ($data === false) {
+                    logMessage("Failed to fetch from: " . $source['url']);
+                    continue;
+                }
+                
+                $proxies = [];
+                
+                if ($source['format'] === 'json') {
+                    $jsonData = json_decode($data, true);
+                    if (isset($jsonData['proxies'])) {
+                        foreach ($jsonData['proxies'] as $proxy) {
+                            if (isset($proxy['ip']) && isset($proxy['port'])) {
+                                $proxies[] = $proxy['ip'] . ':' . $proxy['port'];
+                            }
+                        }
+                    }
+                } else {
+                    preg_match_all('/(\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}):(\d{1,5})/', $data, $matches);
+                    if (!empty($matches[0])) {
+                        $proxies = $matches[0];
+                    }
+                }
+                
+                if (!empty($proxies)) {
+                    $proxies = array_slice($proxies, 0, 200000);
+                    
+                    $imported = 0;
+                    $failed = 0;
+                    
+                    foreach ($proxies as $proxy) {
+                        if ($totalImported >= 1000000) {
+                            logMessage("Reached maximum proxy limit of 1,000,000");
+                            break 2;
+                        }
+                        
+                        list($ip, $port) = explode(':', $proxy);
+                        
+                        if (filter_var($ip, FILTER_VALIDATE_IP) && is_numeric($port) && $port > 0 && $port <= 65535) {
+                            try {
+                                $stmt = $db->prepare("INSERT IGNORE INTO proxies (ip, port, type, status, last_used, failure_count) VALUES (?, ?, 'http', 'alive', 0, 0)");
+                                $stmt->execute([$ip, intval($port)]);
+                                $imported++;
+                                $totalImported++;
+                            } catch (Exception $e) {
+                                $failed++;
+                                $totalFailed++;
+                            }
+                        } else {
+                            $failed++;
+                            $totalFailed++;
+                        }
+                    }
+                    
+                    logMessage("Source {$source['type']}: $imported imported, $failed failed from " . count($proxies) . " total");
+                    $successfulSources++;
+                }
+                
+            } catch (Exception $e) {
+                logMessage("Error collecting from {$source['url']}: " . $e->getMessage());
+                continue;
+            }
+        }
+        
+        file_put_contents('/tmp/last_proxy_update', time());
+        
+        try {
+            $stmt = $db->prepare("DELETE FROM proxies WHERE failure_count > 5 OR (last_used > 0 AND last_used < ?)");
+            $stmt->execute([time() - 86400]); // Remove proxies not used in 24 hours with failures
+            $cleanedCount = $stmt->rowCount();
+            logMessage("Cleaned up $cleanedCount old/dead proxies");
+        } catch (Exception $e) {
+            logMessage("Error cleaning proxies: " . $e->getMessage());
+        }
+        
+        logMessage("Scheduled proxy collection completed: $totalImported new proxies imported from $successfulSources sources, $totalFailed failed");
+        
+        return [
+            'success' => true,
+            'total_imported' => $totalImported,
+            'total_failed' => $totalFailed,
+            'sources_used' => $successfulSources,
+            'message' => "Collected $totalImported new proxies from $successfulSources sources"
+        ];
+    }
+    
+    $timeSinceUpdate = time() - $lastUpdate;
+    $timeUntilNext = 600 - $timeSinceUpdate;
+    
+    return [
+        'success' => true, 
+        'message' => 'No update needed',
+        'time_since_last_update' => $timeSinceUpdate,
+        'time_until_next_update' => $timeUntilNext
+    ];
+}
+
+function importProxiesFromMultipleSources($db, $sources, $maxProxies = 1000000) {
+    $totalImported = 0;
+    $totalFailed = 0;
+    
+    foreach ($sources as $source) {
+        if ($totalImported >= $maxProxies) {
+            break;
+        }
+        
+        try {
+            $data = file_get_contents($source['url']);
+            if ($data === false) continue;
+            
+            $proxies = [];
+            if (isset($source['format']) && $source['format'] === 'json') {
+                $jsonData = json_decode($data, true);
+                if (isset($jsonData['proxies'])) {
+                    foreach ($jsonData['proxies'] as $proxy) {
+                        if (isset($proxy['ip']) && isset($proxy['port'])) {
+                            $proxies[] = $proxy['ip'] . ':' . $proxy['port'];
+                        }
+                    }
+                }
+            } else {
+                preg_match_all('/(\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}):(\d{1,5})/', $data, $matches);
+                if (!empty($matches[0])) {
+                    $proxies = $matches[0];
+                }
+            }
+            
+            foreach ($proxies as $proxy) {
+                if ($totalImported >= $maxProxies) break;
+                
+                list($ip, $port) = explode(':', $proxy);
+                if (filter_var($ip, FILTER_VALIDATE_IP) && is_numeric($port)) {
+                    try {
+                        $stmt = $db->prepare("INSERT IGNORE INTO proxies (ip, port, type, status, last_used, failure_count) VALUES (?, ?, 'http', 'alive', 0, 0)");
+                        $stmt->execute([$ip, intval($port)]);
+                        $totalImported++;
+                    } catch (Exception $e) {
+                        $totalFailed++;
+                    }
+                }
+            }
+        } catch (Exception $e) {
+            logMessage("Error importing from source: " . $e->getMessage());
+        }
+    }
+    
+    return [
+        'success' => true,
+        'total_imported' => $totalImported,
+        'total_failed' => $totalFailed
     ];
 }
 ?>

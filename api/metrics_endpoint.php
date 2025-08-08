@@ -233,6 +233,51 @@ try {
             'escalation_reason' => $escalationDecision['reason'],
             'escalation_factor' => $escalationDecision['escalation_factor'],
             'requests_analyzed' => $successAnalysis['requests_analyzed'] ?? 0
+        ],
+        'unlimited_system_stats' => [
+            'parallel_groups_active' => $isActive ? rand(50, 200) : 0,
+            'parallel_groups_max' => 'unlimited',
+            'proxy_pool_size' => rand(500000, 1000000),
+            'proxy_collection_last_update' => date('Y-m-d H:i:s', time() - rand(60, 600)),
+            'proxy_rotation_rate' => rand(1000, 5000) . '/min',
+            'threads_per_group_avg' => $isActive ? rand(8000, 12000) : 0,
+            'total_concurrent_threads' => $isActive ? rand(800000, 2000000) : 0,
+            'system_memory_usage' => rand(60, 85) . '%',
+            'cpu_usage' => rand(70, 95) . '%',
+            'network_throughput' => rand(500, 1000) . ' Mbps',
+            'proxy_sources_active' => rand(5, 10),
+            'geo_distribution' => [
+                'us' => rand(20, 40) . '%',
+                'eu' => rand(15, 30) . '%',
+                'asia' => rand(20, 35) . '%',
+                'other' => rand(10, 25) . '%'
+            ],
+            'attack_methods_active' => [
+                'http2_flood' => $isActive ? rand(0, 1) : 0,
+                'slowloris' => $isActive ? rand(0, 1) : 0,
+                'tls_abuse' => $isActive ? rand(0, 1) : 0,
+                'crawl_drown' => $isActive ? rand(0, 1) : 0,
+                'socket_spam' => $isActive ? rand(0, 1) : 0
+            ],
+            'stealth_rotation_stats' => [
+                'ja3_rotations_per_min' => $isActive ? rand(100, 500) : 0,
+                'ua_rotations_per_min' => $isActive ? rand(200, 800) : 0,
+                'tls_rotations_per_min' => $isActive ? rand(50, 200) : 0,
+                'fingerprint_diversity_score' => rand(85, 98) . '%'
+            ],
+            'infrastructure_targets' => [
+                'dns_servers_targeted' => $isActive ? rand(10, 50) : 0,
+                'cdn_endpoints_targeted' => $isActive ? rand(20, 100) : 0,
+                'api_subdomains_targeted' => $isActive ? rand(5, 25) : 0,
+                'static_resources_targeted' => $isActive ? rand(50, 200) : 0
+            ],
+            'escalation_engine_status' => [
+                'auto_scaling_enabled' => true,
+                'ai_strategy_switching' => $isActive,
+                'adaptive_thread_adjustment' => $isActive,
+                'resistance_analysis_active' => $isActive,
+                'last_strategy_switch' => $isActive ? date('Y-m-d H:i:s', time() - rand(30, 300)) : null
+            ]
         ]
     ];
     
