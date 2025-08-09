@@ -30,15 +30,58 @@ function logMessage($message) {
 
 try {
     $db = new Database();
+    logMessage("Database initialized successfully");
     
-    $stealthEngine = new StealthEngine();
-    $clientProfile = new ClientProfile();
-    $tlsProfile = new TLSProfile();
-    $proxyManager = new ProxyManager();
-    $successDetector = new SuccessDetector($db);
-    $stealthReporter = new StealthSessionReporter();
+    $stealthEngine = null;
+    $clientProfile = null;
+    $tlsProfile = null;
+    $proxyManager = null;
+    $successDetector = null;
+    $stealthReporter = null;
     
-    logMessage("Metrics endpoint initialized successfully - all components loaded");
+    try {
+        $stealthEngine = new StealthEngine();
+        logMessage("StealthEngine initialized successfully");
+    } catch (Exception $e) {
+        logMessage("WARNING: StealthEngine failed to initialize: " . $e->getMessage());
+    }
+    
+    try {
+        $clientProfile = new ClientProfile();
+        logMessage("ClientProfile initialized successfully");
+    } catch (Exception $e) {
+        logMessage("WARNING: ClientProfile failed to initialize: " . $e->getMessage());
+    }
+    
+    try {
+        $tlsProfile = new TLSProfile();
+        logMessage("TLSProfile initialized successfully");
+    } catch (Exception $e) {
+        logMessage("WARNING: TLSProfile failed to initialize: " . $e->getMessage());
+    }
+    
+    try {
+        $proxyManager = new ProxyManager();
+        logMessage("ProxyManager initialized successfully");
+    } catch (Exception $e) {
+        logMessage("WARNING: ProxyManager failed to initialize: " . $e->getMessage());
+    }
+    
+    try {
+        $successDetector = new SuccessDetector($db);
+        logMessage("SuccessDetector initialized successfully");
+    } catch (Exception $e) {
+        logMessage("WARNING: SuccessDetector failed to initialize: " . $e->getMessage());
+    }
+    
+    try {
+        $stealthReporter = new StealthSessionReporter();
+        logMessage("StealthSessionReporter initialized successfully");
+    } catch (Exception $e) {
+        logMessage("WARNING: StealthSessionReporter failed to initialize: " . $e->getMessage());
+    }
+    
+    logMessage("Metrics endpoint initialized with graceful fallbacks");
     
     $activeGroups = 0;
     $activeRuns = 0;
@@ -63,11 +106,19 @@ try {
     $stealthStatus = ['stealth_level' => 'High', 'ja3_rotation' => true, 'tls_rotation' => true, 'ua_rotation' => true, 'detection_risk' => 'Low'];
     
     try {
-        $currentUA = $clientProfile->getCurrentUserAgent();
-        $currentJA3 = $tlsProfile->getCurrentProfile();
-        $currentProxy = $proxyManager->getActiveProxy();
-        $proxyStats = $proxyManager->getProxyStats();
-        $stealthStatus = $stealthEngine->getSessionStatus();
+        if ($clientProfile) {
+            $currentUA = $clientProfile->getCurrentUserAgent();
+        }
+        if ($tlsProfile) {
+            $currentJA3 = $tlsProfile->getCurrentProfile();
+        }
+        if ($proxyManager) {
+            $currentProxy = $proxyManager->getActiveProxy();
+            $proxyStats = $proxyManager->getProxyStats();
+        }
+        if ($stealthEngine) {
+            $stealthStatus = $stealthEngine->getSessionStatus();
+        }
         logMessage("Stealth components loaded successfully");
     } catch (Exception $stealthError) {
         logMessage("WARNING: Stealth component error: " . $stealthError->getMessage() . " - Using fallback values");
