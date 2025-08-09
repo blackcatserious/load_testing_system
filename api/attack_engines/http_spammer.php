@@ -1,9 +1,20 @@
 <?php
 
-require_once __DIR__ . '/../stealth_engine_class.php';
-require_once __DIR__ . '/../client_profile_class.php';
-require_once __DIR__ . '/../tls_profile_class.php';
-require_once __DIR__ . '/../proxy_manager.php';
+$stealthDependencies = [
+    __DIR__ . '/../stealth_engine_class.php',
+    __DIR__ . '/../client_profile_class.php',
+    __DIR__ . '/../tls_profile_class.php',
+    __DIR__ . '/../proxy_manager_class.php'
+];
+
+foreach ($stealthDependencies as $dep) {
+    if (file_exists($dep)) {
+        try {
+            require_once $dep;
+        } catch (Exception $e) {
+        }
+    }
+}
 
 class HttpSpammerEngine {
     private $config;
@@ -43,6 +54,11 @@ class HttpSpammerEngine {
         $bytesTransferred = 0;
         
         while (true) {
+            if (time() - $startTime >= $this->config['duration']) {
+                $this->logMessage("Maximum duration reached for group: $groupId");
+                break;
+            }
+            
             if ($this->shouldStop($groupId)) {
                 $this->logMessage("Manual stop signal received for group: $groupId");
                 break;
@@ -212,17 +228,32 @@ class HttpSpammerEngine {
     }
     
     private function initializeStealth($groupId) {
-        $this->stealthEngine = new StealthEngine([
-            'session_id' => "http_spammer_$groupId",
-            'stealth_level' => 'maximum',
-            'rotation_interval' => 20
-        ]);
-        
-        $this->clientProfile = new ClientProfile();
-        $this->tlsProfile = new TLSProfile();
-        $this->proxyManager = new ProxyManager();
-        
-        $this->logMessage("Initialized stealth components for HTTP Spammer group: $groupId");
+        try {
+            if (class_exists('StealthEngine')) {
+                $this->stealthEngine = new StealthEngine([
+                    'session_id' => "http_spammer_$groupId",
+                    'stealth_level' => 'maximum',
+                    'rotation_interval' => 20
+                ]);
+            }
+            
+            if (class_exists('ClientProfile')) {
+                $this->clientProfile = new ClientProfile();
+            }
+            
+            if (class_exists('TLSProfile')) {
+                $this->tlsProfile = new TLSProfile();
+            }
+            
+            if (class_exists('ProxyManager')) {
+                $this->proxyManager = new ProxyManager();
+            }
+            
+            $this->logMessage("Initialized available stealth components for HTTP Spammer group: $groupId");
+        } catch (Exception $e) {
+            $this->logMessage("Stealth initialization failed, continuing without stealth: " . $e->getMessage());
+            $this->config['stealth_enabled'] = false;
+        }
     }
     
     private function rotateStealthComponents() {

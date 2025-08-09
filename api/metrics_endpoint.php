@@ -74,19 +74,16 @@ try {
     }
     
     $currentTime = time();
-    $uptime = $currentTime - strtotime('2025-08-03 00:00:00'); // System start time
+    $uptime = $currentTime - strtotime('2025-08-03 00:00:00');
+    
+    $realMetrics = collectRealAttackMetrics();
     
     $isActive = $activeGroups > 0;
-    $baseRps = $isActive ? rand(10, 50) : 0;
-    $threads = $activeRuns * 10; // Estimate based on active runs
+    $baseRps = $realMetrics['total_rps'] ?? 0;
+    $threads = $realMetrics['active_threads'] ?? 0;
     
-    $codes = [
-        '200' => $isActive ? rand(800, 1200) : 0,
-        '404' => $isActive ? rand(10, 30) : 0,
-        '403' => $isActive ? rand(5, 20) : 0,
-        '500' => $isActive ? rand(1, 8) : 0,
-        '524' => $isActive ? rand(0, 5) : 0,
-        '429' => $isActive ? rand(2, 15) : 0
+    $codes = $realMetrics['status_codes'] ?? [
+        '200' => 0, '404' => 0, '403' => 0, '500' => 0, '524' => 0, '429' => 0
     ];
     
     $totalRequests = array_sum($codes);
@@ -480,6 +477,40 @@ function calculateErrorRate($codes, $totalRequests) {
     }
     
     return round(($errorCount / $totalRequests) * 100, 2);
+}
+
+function collectRealAttackMetrics() {
+    $totalRps = 0;
+    $totalThreads = 0;
+    $combinedCodes = ['200' => 0, '404' => 0, '403' => 0, '500' => 0, '524' => 0, '429' => 0];
+    
+    $statusFiles = glob('/tmp/engine_status_*.json');
+    foreach ($statusFiles as $file) {
+        $data = json_decode(file_get_contents($file), true);
+        if ($data && isset($data['metrics'])) {
+            $metrics = $data['metrics'];
+            $totalRps += $metrics['total_requests'] ?? 0;
+            $totalThreads += $metrics['threads_used'] ?? 0;
+            
+            if (isset($metrics['error_codes'])) {
+                foreach ($metrics['error_codes'] as $code => $count) {
+                    if (isset($combinedCodes[$code])) {
+                        $combinedCodes[$code] += $count;
+                    }
+                }
+            }
+            
+            if (isset($metrics['success_count'])) {
+                $combinedCodes['200'] += $metrics['success_count'];
+            }
+        }
+    }
+    
+    return [
+        'total_rps' => $totalRps,
+        'active_threads' => $totalThreads,
+        'status_codes' => $combinedCodes
+    ];
 }
 
 function getResistanceLevelText($resistanceLevel) {

