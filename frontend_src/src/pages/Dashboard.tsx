@@ -406,10 +406,10 @@ const Dashboard: React.FC<{}> = () => {
       case 'runs':
         return (
           <div className="space-y-6">
-            <div className="bg-gray-800 rounded-lg shadow-lg border border-gray-700 p-6">
+            <div className="bg-white rounded-lg shadow-md border border-gray-200 p-6">
               <div className="flex justify-between items-center mb-4">
-                <h3 className="text-lg font-semibold text-white">Launch History & Active Runs</h3>
-                <button className="bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500">
+                <h3 className="text-lg font-semibold text-gray-900">Launch History & Active Runs</h3>
+                <button className="bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 shadow-md">
                   Export History
                 </button>
               </div>
@@ -579,8 +579,8 @@ const Dashboard: React.FC<{}> = () => {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-bold text-white">Dashboard</h1>
-          <p className="text-gray-300 mt-1">
+          <h1 className="text-3xl font-bold text-gray-900">Dashboard</h1>
+          <p className="text-gray-600 mt-1">
             Manage and monitor your load testing operations
           </p>
         </div>
@@ -588,20 +588,78 @@ const Dashboard: React.FC<{}> = () => {
           <div className={`w-3 h-3 rounded-full animate-pulse ${
             metricsError ? 'bg-red-500' : metrics ? 'bg-green-500' : 'bg-yellow-500'
           }`}></div>
-          <span className="text-sm text-gray-300">
+          <span className="text-sm text-gray-600">
             {metricsError ? 'System Error' : metrics ? 'System Online' : 'Connecting...'}
           </span>
         </div>
       </div>
 
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+        <div className="bg-white rounded-lg shadow-md border border-gray-200 p-6">
+          <div className="flex items-center">
+            <div className="flex-shrink-0">
+              <Database className="h-8 w-8 text-blue-600" />
+            </div>
+            <div className="ml-4">
+              <p className="text-sm font-medium text-gray-600">Proxy Pool</p>
+              <p className="text-2xl font-bold text-gray-900">
+                {metrics?.proxy_stats?.total_proxies ? Number(metrics.proxy_stats.total_proxies).toLocaleString() : '0'}
+              </p>
+            </div>
+          </div>
+        </div>
+
+        <div className="bg-white rounded-lg shadow-md border border-gray-200 p-6">
+          <div className="flex items-center">
+            <div className="flex-shrink-0">
+              <TrendingUp className="h-8 w-8 text-green-600" />
+            </div>
+            <div className="ml-4">
+              <p className="text-sm font-medium text-gray-600">Active Connections</p>
+              <p className="text-2xl font-bold text-gray-900">
+                {metrics?.active_connections || '0'}
+              </p>
+            </div>
+          </div>
+        </div>
+
+        <div className="bg-white rounded-lg shadow-md border border-gray-200 p-6">
+          <div className="flex items-center">
+            <div className="flex-shrink-0">
+              <BarChart3 className="h-8 w-8 text-purple-600" />
+            </div>
+            <div className="ml-4">
+              <p className="text-sm font-medium text-gray-600">Success Rate</p>
+              <p className="text-2xl font-bold text-gray-900">
+                {Math.round(metrics?.success_rate || 0)}%
+              </p>
+            </div>
+          </div>
+        </div>
+
+        <div className="bg-white rounded-lg shadow-md border border-gray-200 p-6">
+          <div className="flex items-center">
+            <div className="flex-shrink-0">
+              <Users className="h-8 w-8 text-orange-600" />
+            </div>
+            <div className="ml-4">
+              <p className="text-sm font-medium text-gray-600">Active Runs</p>
+              <p className="text-2xl font-bold text-gray-900">
+                {groupRuns.filter(run => run.status === 'running').length}
+              </p>
+            </div>
+          </div>
+        </div>
+      </div>
+
       {/* BATTLE ATTACK CONTROLS - UNLIMITED MODE */}
-      <div className="bg-gradient-to-r from-gray-800 to-gray-900 rounded-lg shadow-lg border border-gray-700 p-6 text-white">
-        <h3 className="text-xl font-bold mb-4">🚀 BATTLE ATTACK CONTROLS - UNLIMITED MODE</h3>
+      <div className="bg-white rounded-lg shadow-md border border-gray-200 p-6">
+        <h3 className="text-xl font-bold mb-4 text-gray-900">🚀 BATTLE ATTACK CONTROLS - UNLIMITED MODE</h3>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div>
             <button 
               onClick={() => handleStartAttack('battle_mode')}
-              className="w-full bg-blue-600 text-white px-6 py-4 rounded-lg hover:bg-blue-700 focus:outline-none focus:ring-4 focus:ring-blue-500 font-bold text-lg shadow-lg transform hover:scale-105 transition-all"
+              className="w-full bg-green-600 text-white px-6 py-4 rounded-lg hover:bg-green-700 focus:outline-none focus:ring-4 focus:ring-green-500 font-bold text-lg shadow-lg transform hover:scale-105 transition-all"
             >
               ⚡ START MAXIMUM ATTACK (100K+ THREADS)
             </button>
@@ -615,7 +673,7 @@ const Dashboard: React.FC<{}> = () => {
             </button>
           </div>
         </div>
-        <div className="mt-4 text-sm opacity-90">
+        <div className="mt-4 text-sm text-gray-600">
           <p>⚠️ UNLIMITED MODE ENABLED: 100,000+ threads | 10M+ proxies | Unlimited parallel groups</p>
           <p>🎯 Target degradation mode: 503/524 errors | Infrastructure attack: DNS + CDN</p>
           <p>🔄 Advanced methods: HTTP/2 flood, Slowloris, TLS abuse, Crawl &amp; Drown</p>
@@ -623,50 +681,50 @@ const Dashboard: React.FC<{}> = () => {
       </div>
 
       {/* UNLIMITED PARALLEL GROUPS CONFIGURATION */}
-      <div className="bg-gradient-to-r from-blue-800 to-blue-900 rounded-lg shadow-lg border border-blue-700 p-6 text-white">
-        <h3 className="text-xl font-bold mb-4">🚀 UNLIMITED PARALLEL GROUPS CONFIGURATION</h3>
+      <div className="bg-white rounded-lg shadow-md border border-gray-200 p-6">
+        <h3 className="text-xl font-bold mb-4 text-gray-900">🚀 UNLIMITED PARALLEL GROUPS CONFIGURATION</h3>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           <div>
-            <label className="block text-sm font-medium mb-2">Parallel Groups Count</label>
+            <label className="block text-sm font-medium mb-2 text-gray-700">Parallel Groups Count</label>
             <input 
               type="number" 
               min="1" 
               max="1000" 
               defaultValue="100"
-              className="w-full px-3 py-2 bg-blue-700 border border-blue-600 rounded-md text-white placeholder-blue-300"
+              className="w-full px-3 py-2 bg-white border border-gray-300 rounded-md text-gray-900 placeholder-gray-500 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
               placeholder="Unlimited (default: 100)"
             />
-            <p className="text-xs mt-1 opacity-75">Set to 1000 for maximum parallel execution</p>
+            <p className="text-xs mt-1 text-gray-500">Set to 1000 for maximum parallel execution</p>
           </div>
           <div>
-            <label className="block text-sm font-medium mb-2">Threads Per Group</label>
+            <label className="block text-sm font-medium mb-2 text-gray-700">Threads Per Group</label>
             <input 
               type="number" 
               min="1000" 
               max="100000" 
               defaultValue="10000"
-              className="w-full px-3 py-2 bg-blue-700 border border-blue-600 rounded-md text-white placeholder-blue-300"
+              className="w-full px-3 py-2 bg-white border border-gray-300 rounded-md text-gray-900 placeholder-gray-500 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
               placeholder="10,000"
             />
-            <p className="text-xs mt-1 opacity-75">Recommended: 10,000-100,000 per group</p>
+            <p className="text-xs mt-1 text-gray-500">Recommended: 10,000-100,000 per group</p>
           </div>
           <div>
-            <label className="block text-sm font-medium mb-2">Group Launch Interval (ms)</label>
+            <label className="block text-sm font-medium mb-2 text-gray-700">Group Launch Interval (ms)</label>
             <input 
               type="number" 
               min="100" 
               max="5000" 
               defaultValue="1000"
-              className="w-full px-3 py-2 bg-blue-700 border border-blue-600 rounded-md text-white placeholder-blue-300"
+              className="w-full px-3 py-2 bg-white border border-gray-300 rounded-md text-gray-900 placeholder-gray-500 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
               placeholder="1000ms"
             />
-            <p className="text-xs mt-1 opacity-75">Delay between launching parallel groups</p>
+            <p className="text-xs mt-1 text-gray-500">Delay between launching parallel groups</p>
           </div>
         </div>
         <div className="mt-4 grid grid-cols-1 md:grid-cols-2 gap-4">
           <div>
-            <label className="block text-sm font-medium mb-2">Attack Strategy</label>
-            <select className="w-full px-3 py-2 bg-blue-700 border border-blue-600 rounded-md text-white">
+            <label className="block text-sm font-medium mb-2 text-gray-700">Attack Strategy</label>
+            <select className="w-full px-3 py-2 bg-white border border-gray-300 rounded-md text-gray-900 focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
               <option value="adaptive">Adaptive Escalation</option>
               <option value="aggressive">Maximum Aggressive</option>
               <option value="stealth">Stealth Mode</option>
@@ -674,8 +732,8 @@ const Dashboard: React.FC<{}> = () => {
             </select>
           </div>
           <div>
-            <label className="block text-sm font-medium mb-2">Target Distribution</label>
-            <select className="w-full px-3 py-2 bg-blue-700 border border-blue-600 rounded-md text-white">
+            <label className="block text-sm font-medium mb-2 text-gray-700">Target Distribution</label>
+            <select className="w-full px-3 py-2 bg-white border border-gray-300 rounded-md text-gray-900 focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
               <option value="round_robin">Round Robin</option>
               <option value="random">Random Distribution</option>
               <option value="weighted">Weighted by Response</option>
@@ -685,68 +743,68 @@ const Dashboard: React.FC<{}> = () => {
         </div>
         <div className="mt-4 flex items-center space-x-4">
           <label className="flex items-center">
-            <input type="checkbox" defaultChecked className="mr-2 rounded bg-blue-700 border-blue-600" />
-            <span className="text-sm">Enable Auto-Scaling</span>
+            <input type="checkbox" defaultChecked className="mr-2 rounded border-gray-300 text-blue-600 focus:ring-blue-500" />
+            <span className="text-sm text-gray-700">Enable Auto-Scaling</span>
           </label>
           <label className="flex items-center">
-            <input type="checkbox" defaultChecked className="mr-2 rounded bg-blue-700 border-blue-600" />
-            <span className="text-sm">Dynamic Thread Adjustment</span>
+            <input type="checkbox" defaultChecked className="mr-2 rounded border-gray-300 text-blue-600 focus:ring-blue-500" />
+            <span className="text-sm text-gray-700">Dynamic Thread Adjustment</span>
           </label>
           <label className="flex items-center">
-            <input type="checkbox" defaultChecked className="mr-2 rounded bg-blue-700 border-blue-600" />
-            <span className="text-sm">Failure Recovery</span>
+            <input type="checkbox" defaultChecked className="mr-2 rounded border-gray-300 text-blue-600 focus:ring-blue-500" />
+            <span className="text-sm text-gray-700">Failure Recovery</span>
           </label>
         </div>
-        <div className="mt-4 text-xs opacity-75">
+        <div className="mt-4 text-xs text-gray-600">
           <p>💡 Unlimited mode removes all hardcoded limits. System will scale based on available resources.</p>
           <p>⚡ Each parallel group operates independently with its own proxy pool and attack strategy.</p>
         </div>
       </div>
 
       {/* PROXY COLLECTION & ROTATION */}
-      <div className="bg-gradient-to-r from-green-800 to-green-900 rounded-lg shadow-lg border border-green-700 p-6 text-white">
-        <h3 className="text-xl font-bold mb-4">🔄 PROXY COLLECTION & ROTATION</h3>
+      <div className="bg-white rounded-lg shadow-md border border-gray-200 p-6">
+        <h3 className="text-xl font-bold mb-4 text-gray-900">🔄 PROXY COLLECTION & ROTATION</h3>
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
           <div>
-            <label className="block text-sm font-medium mb-2">Collection Interval</label>
-            <select className="w-full px-3 py-2 bg-green-700 border border-green-600 rounded-md text-white">
+            <label className="block text-sm font-medium mb-2 text-gray-700">Collection Interval</label>
+            <select className="w-full px-3 py-2 bg-white border border-gray-300 rounded-md text-gray-900 focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
               <option value="600">10 minutes</option>
               <option value="300">5 minutes</option>
               <option value="1800">30 minutes</option>
             </select>
-            <p className="text-xs mt-1 opacity-75">Automatic proxy collection frequency</p>
+            <p className="text-xs mt-1 text-gray-500">Automatic proxy collection frequency</p>
           </div>
           <div>
-            <label className="block text-sm font-medium mb-2">Rotation Speed</label>
-            <select className="w-full px-3 py-2 bg-green-700 border border-green-600 rounded-md text-white">
+            <label className="block text-sm font-medium mb-2 text-gray-700">Rotation Speed</label>
+            <select className="w-full px-3 py-2 bg-white border border-gray-300 rounded-md text-gray-900 focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
               <option value="1">Every request</option>
               <option value="10">Every 10 requests</option>
               <option value="100">Every 100 requests</option>
             </select>
-            <p className="text-xs mt-1 opacity-75">How often to rotate proxies</p>
+            <p className="text-xs mt-1 text-gray-500">How often to rotate proxies</p>
           </div>
           <div>
-            <label className="block text-sm font-medium mb-2">Max Pool Size</label>
+            <label className="block text-sm font-medium mb-2 text-gray-700">Max Pool Size</label>
             <input 
               type="number" 
               min="10000" 
               max="10000000" 
               defaultValue="1000000"
-              className="w-full px-3 py-2 bg-green-700 border border-green-600 rounded-md text-white placeholder-green-300"
+              className="w-full px-3 py-2 bg-white border border-gray-300 rounded-md text-gray-900 placeholder-gray-500 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
               placeholder="1M proxies"
             />
-            <p className="text-xs mt-1 opacity-75">Maximum proxies to maintain in pool</p>
+            <p className="text-xs mt-1 text-gray-500">Maximum proxies to maintain in pool</p>
           </div>
           <div className="flex items-end">
-            <button className="w-full bg-green-600 text-white px-4 py-2 rounded-md hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-green-300">
+            <button className="w-full bg-green-600 text-white px-4 py-2 rounded-md hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-green-500 shadow-md">
               🔄 Force Update Now
             </button>
           </div>
         </div>
         <div className="mt-4 grid grid-cols-1 md:grid-cols-3 gap-4">
           <div>
-            <label className="block text-sm font-medium mb-2">Proxy Sources</label>
-            <select className="w-full px-3 py-2 bg-green-700 border border-green-600 rounded-md text-white">
+            <label className="block text-sm font-medium mb-2 text-gray-700">Proxy Sources</label>
+            <select className="w-full px-3 py-2 bg-white border border-gray-300 rounded-md text-gray-900 focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
               <option value="all">All Sources (GitHub + APIs)</option>
               <option value="github">GitHub Only</option>
               <option value="apis">APIs Only</option>
@@ -754,8 +812,8 @@ const Dashboard: React.FC<{}> = () => {
             </select>
           </div>
           <div>
-            <label className="block text-sm font-medium mb-2">Geo Distribution</label>
-            <select className="w-full px-3 py-2 bg-green-700 border border-green-600 rounded-md text-white">
+            <label className="block text-sm font-medium mb-2 text-gray-700">Geo Distribution</label>
+            <select className="w-full px-3 py-2 bg-white border border-gray-300 rounded-md text-gray-900 focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
               <option value="global">Global Mix</option>
               <option value="us_eu">US + EU Focus</option>
               <option value="asia">Asia Focus</option>
@@ -763,8 +821,8 @@ const Dashboard: React.FC<{}> = () => {
             </select>
           </div>
           <div>
-            <label className="block text-sm font-medium mb-2">Health Check</label>
-            <select className="w-full px-3 py-2 bg-green-700 border border-green-600 rounded-md text-white">
+            <label className="block text-sm font-medium mb-2 text-gray-700">Health Check</label>
+            <select className="w-full px-3 py-2 bg-white border border-gray-300 rounded-md text-gray-900 focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
               <option value="aggressive">Aggressive (every 30s)</option>
               <option value="moderate">Moderate (every 2min)</option>
               <option value="conservative">Conservative (every 5min)</option>
@@ -773,26 +831,26 @@ const Dashboard: React.FC<{}> = () => {
         </div>
         <div className="mt-4 flex items-center space-x-4">
           <label className="flex items-center">
-            <input type="checkbox" defaultChecked className="mr-2 rounded bg-green-700 border-green-600" />
-            <span className="text-sm">Auto-Remove Dead Proxies</span>
+            <input type="checkbox" defaultChecked className="mr-2 rounded border-gray-300 text-blue-600 focus:ring-blue-500" />
+            <span className="text-sm text-gray-700">Auto-Remove Dead Proxies</span>
           </label>
           <label className="flex items-center">
-            <input type="checkbox" defaultChecked className="mr-2 rounded bg-green-700 border-green-600" />
-            <span className="text-sm">Randomize User-Agents</span>
+            <input type="checkbox" defaultChecked className="mr-2 rounded border-gray-300 text-blue-600 focus:ring-blue-500" />
+            <span className="text-sm text-gray-700">Randomize User-Agents</span>
           </label>
           <label className="flex items-center">
-            <input type="checkbox" defaultChecked className="mr-2 rounded bg-green-700 border-green-600" />
-            <span className="text-sm">TLS Fingerprint Rotation</span>
+            <input type="checkbox" defaultChecked className="mr-2 rounded border-gray-300 text-blue-600 focus:ring-blue-500" />
+            <span className="text-sm text-gray-700">TLS Fingerprint Rotation</span>
           </label>
         </div>
-        <div className="mt-4 text-xs opacity-75">
+        <div className="mt-4 text-xs text-gray-600">
           <p>🌐 System automatically collects 10M+ proxies from multiple sources every 10 minutes</p>
           <p>🔄 Advanced rotation includes IP, User-Agent, TLS fingerprint, and geographic distribution</p>
         </div>
       </div>
 
-      <div className="bg-gray-900 rounded-lg shadow-lg border border-gray-700">
-        <div className="border-b border-gray-700">
+      <div className="bg-white rounded-lg shadow-md border border-gray-200">
+        <div className="border-b border-gray-200">
           <nav className="flex space-x-8 px-6" aria-label="Tabs">
             {tabs.map((tab) => {
               const Icon = tab.icon;
@@ -802,8 +860,8 @@ const Dashboard: React.FC<{}> = () => {
                   onClick={() => setActiveTab(tab.id as TabType)}
                   className={`${
                     activeTab === tab.id
-                      ? 'border-blue-500 text-blue-400'
-                      : 'border-transparent text-gray-400 hover:text-gray-300 hover:border-gray-600'
+                      ? 'border-blue-500 text-blue-600'
+                      : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
                   } whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm flex items-center space-x-2`}
                 >
                   <Icon className="h-4 w-4" />
