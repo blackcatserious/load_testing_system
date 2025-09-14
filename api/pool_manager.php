@@ -24,9 +24,12 @@ class PoolManager {
     }
     
     public function getDefaultConfig() {
+        // Try production paths first, fall back to local paths
+        $basePath = is_dir('/home/ftcceelg/load_testing_system') ? '/home/ftcceelg/load_testing_system' : __DIR__ . '/..';
+        
         return [
-            'proxy_pool_file' => '/home/ftcceelg/load_testing_system/proxy_pool.json',
-            'ua_pool_file' => '/home/ftcceelg/load_testing_system/ua_pool.json',
+            'proxy_pool_file' => $basePath . '/proxy_pool.json',
+            'ua_pool_file' => $basePath . '/ua_pool.json',
             'proxy_rotation_interval' => 60,
             'ua_rotation_interval' => 1,
             'auto_reload' => true,
@@ -315,15 +318,19 @@ class PoolManager {
             return;
         }
         
-        $logFile = '/home/ftcceelg/load_testing_system/logs/backend.log';
+        // Try production path first, fall back to temp path
+        $logFile = is_writable('/home/ftcceelg/load_testing_system/logs') || @mkdir('/home/ftcceelg/load_testing_system/logs', 0755, true) 
+            ? '/home/ftcceelg/load_testing_system/logs/backend.log' 
+            : '/tmp/pool_manager.log';
+            
         $logDir = dirname($logFile);
         if (!is_dir($logDir)) {
-            mkdir($logDir, 0755, true);
+            @mkdir($logDir, 0755, true);
         }
         
         $timestamp = date('Y-m-d H:i:s');
         $logEntry = "[$timestamp] POOL_MANAGER: $message" . PHP_EOL;
-        file_put_contents($logFile, $logEntry, FILE_APPEND | LOCK_EX);
+        @file_put_contents($logFile, $logEntry, FILE_APPEND | LOCK_EX);
     }
 }
 
