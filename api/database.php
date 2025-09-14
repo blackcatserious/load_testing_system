@@ -3,8 +3,19 @@ class Database {
     private $pdo;
     private $dbPath;
     
-    public function __construct() {
-        $this->dbPath = '/home/ftcceelg/load_testing_system/data/results.db';
+    public function __construct($dbPath = null) {
+        // Use provided path or fall back to default locations
+        if ($dbPath) {
+            $this->dbPath = $dbPath;
+        } else {
+            // Try production path first, fall back to local path
+            if (is_writable('/home/ftcceelg/load_testing_system/data') || @mkdir('/home/ftcceelg/load_testing_system/data', 0755, true)) {
+                $this->dbPath = '/home/ftcceelg/load_testing_system/data/results.db';
+            } else {
+                // Fall back to local directory
+                $this->dbPath = __DIR__ . '/../data/results.db';
+            }
+        }
         $this->ensureDirectoryExists();
         $this->connect();
         $this->initializeTables();
