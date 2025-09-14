@@ -219,7 +219,7 @@ const Dashboard: React.FC<{}> = () => {
             <div>
               <p className="text-sm font-medium text-gray-400">Error Rate (%)</p>
               <h3 className="text-2xl font-bold text-white mt-1">
-                {metrics?.success_rate ? ((1 - metrics.success_rate) * 100).toFixed(1) : '0.0'}%
+                {metrics?.success_rate ? ((1 - (parseFloat(metrics.success_rate.toString()) || 0) / 100) * 100).toFixed(1) : '0.0'}%
               </h3>
             </div>
             <div className="bg-red-600 p-3 rounded-full">

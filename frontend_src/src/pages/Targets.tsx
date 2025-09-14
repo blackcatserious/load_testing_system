@@ -277,14 +277,14 @@ const Targets: React.FC = () => {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-bold text-gray-900">Targets</h1>
-          <p className="text-gray-600 mt-1">
+          <h1 className="text-3xl font-bold text-white">Targets</h1>
+          <p className="text-gray-300 mt-1">
             Manage and monitor your load testing targets
           </p>
         </div>
         <div className="flex items-center space-x-2">
           <span className={`inline-flex items-center px-3 py-1 rounded-full text-sm font-medium ${
-            unlimitedMode ? 'bg-red-100 text-red-800' : 'bg-blue-100 text-blue-800'
+            unlimitedMode ? 'bg-red-800 text-red-200' : 'bg-blue-800 text-blue-200'
           }`}>
             {unlimitedMode ? '⚡ UNLIMITED MODE' : 'Standard Mode'}
           </span>
@@ -302,7 +302,7 @@ const Targets: React.FC = () => {
       </div>
 
       {/* BATTLE MODE - UNLIMITED TARGETS */}
-      <div className="bg-gradient-to-r from-orange-600 to-red-600 rounded-lg shadow-lg border border-red-700 p-6 text-white mb-8">
+      <div className="bg-gradient-to-r from-gray-800 to-gray-900 rounded-lg shadow-lg border border-gray-700 p-6 text-white mb-8">
         <h2 className="text-xl font-bold mb-4">🎯 BATTLE MODE - UNLIMITED TARGETS</h2>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <button 
@@ -325,9 +325,9 @@ const Targets: React.FC = () => {
         </div>
       </div>
 
-      <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+      <div className="bg-gray-800 rounded-lg shadow-lg border border-gray-700 p-6">
         <div className="flex justify-between items-center mb-6">
-          <h2 className="text-xl font-semibold text-gray-900">Target List</h2>
+          <h2 className="text-xl font-semibold text-white">Target List</h2>
           <div className="flex space-x-2">
             <button 
               onClick={() => setShowBulkImport(!showBulkImport)}
@@ -337,7 +337,7 @@ const Targets: React.FC = () => {
             </button>
             <button 
               onClick={fetchTargets}
-              className="bg-gray-100 text-gray-700 px-4 py-2 rounded-md hover:bg-gray-200 focus:outline-none focus:ring-2 focus:ring-gray-500"
+              className="bg-gray-700 text-gray-300 px-4 py-2 rounded-md hover:bg-gray-600 focus:outline-none focus:ring-2 focus:ring-gray-500"
             >
               Refresh
             </button>
@@ -346,15 +346,15 @@ const Targets: React.FC = () => {
 
         {/* Bulk Import Form */}
         {showBulkImport && (
-          <div className="mb-6 p-4 border border-blue-200 rounded-lg bg-blue-50">
-            <h3 className="text-lg font-medium text-blue-900 mb-2">Bulk Import Targets</h3>
-            <p className="text-sm text-blue-700 mb-4">
+          <div className="mb-6 p-4 border border-blue-700 rounded-lg bg-blue-900">
+            <h3 className="text-lg font-medium text-blue-200 mb-2">Bulk Import Targets</h3>
+            <p className="text-sm text-blue-300 mb-4">
               Enter one URL per line. Each URL will be imported as a separate target.
             </p>
             <textarea
               value={bulkTargets}
               onChange={(e) => setBulkTargets(e.target.value)}
-              className="w-full h-32 p-2 border border-blue-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 mb-4"
+              className="w-full h-32 p-2 border border-blue-600 rounded-md bg-blue-800 text-white focus:outline-none focus:ring-2 focus:ring-blue-500 mb-4"
               placeholder="https://example.com&#10;https://another-example.com&#10;https://third-example.com"
             ></textarea>
             <div className="flex justify-end">
@@ -369,45 +369,45 @@ const Targets: React.FC = () => {
         )}
 
         {/* Add Target Form */}
-        <div className="mb-6 p-4 border border-gray-200 rounded-lg bg-gray-50">
-          <h3 className="text-lg font-medium text-gray-900 mb-4">Add New Target</h3>
+        <div className="mb-6 p-4 border border-gray-700 rounded-lg bg-gray-900">
+          <h3 className="text-lg font-medium text-white mb-4">Add New Target</h3>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Label</label>
+              <label className="block text-sm font-medium text-gray-300 mb-1">Label</label>
               <input
                 type="text"
                 value={newTarget.label}
                 onChange={(e) => setNewTarget({ ...newTarget, label: e.target.value })}
-                className="w-full p-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="w-full p-2 border border-gray-600 rounded-md bg-gray-800 text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
                 placeholder="Target Label"
               />
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">URL</label>
+              <label className="block text-sm font-medium text-gray-300 mb-1">URL</label>
               <input
                 type="text"
                 value={newTarget.url}
                 onChange={(e) => setNewTarget({ ...newTarget, url: e.target.value })}
-                className="w-full p-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="w-full p-2 border border-gray-600 rounded-md bg-gray-800 text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
                 placeholder="https://example.com"
               />
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Tags (comma separated)</label>
+              <label className="block text-sm font-medium text-gray-300 mb-1">Tags (comma separated)</label>
               <input
                 type="text"
                 value={newTarget.tags}
                 onChange={(e) => setNewTarget({ ...newTarget, tags: e.target.value })}
-                className="w-full p-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="w-full p-2 border border-gray-600 rounded-md bg-gray-800 text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
                 placeholder="tag1, tag2, tag3"
               />
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Attack Method</label>
+              <label className="block text-sm font-medium text-gray-300 mb-1">Attack Method</label>
               <select
                 value={newTarget.attack_method}
                 onChange={(e) => setNewTarget({ ...newTarget, attack_method: e.target.value })}
-                className="w-full p-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="w-full p-2 border border-gray-600 rounded-md bg-gray-800 text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
               >
                 <option value="auto-bypass">Auto Bypass</option>
                 <option value="bypassv2">Bypass v2</option>
@@ -421,11 +421,11 @@ const Targets: React.FC = () => {
               </select>
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Engine</label>
+              <label className="block text-sm font-medium text-gray-300 mb-1">Engine</label>
               <select
                 value={newTarget.engine}
                 onChange={(e) => setNewTarget({ ...newTarget, engine: e.target.value })}
-                className="w-full p-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="w-full p-2 border border-gray-600 rounded-md bg-gray-800 text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
               >
                 <option value="playwright">Playwright</option>
                 <option value="fetch">Fetch</option>
@@ -435,11 +435,11 @@ const Targets: React.FC = () => {
               </select>
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Proxy Profile</label>
+              <label className="block text-sm font-medium text-gray-300 mb-1">Proxy Profile</label>
               <select
                 value={newTarget.proxy_profile}
                 onChange={(e) => setNewTarget({ ...newTarget, proxy_profile: e.target.value })}
-                className="w-full p-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="w-full p-2 border border-gray-600 rounded-md bg-gray-800 text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
               >
                 <option value="rotating">Rotating</option>
                 <option value="residential">Residential</option>
@@ -449,11 +449,11 @@ const Targets: React.FC = () => {
               </select>
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Stealth Profile</label>
+              <label className="block text-sm font-medium text-gray-300 mb-1">Stealth Profile</label>
               <select
                 value={newTarget.stealth_profile}
                 onChange={(e) => setNewTarget({ ...newTarget, stealth_profile: e.target.value })}
-                className="w-full p-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="w-full p-2 border border-gray-600 rounded-md bg-gray-800 text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
               >
                 <option value="low">Low</option>
                 <option value="medium">Medium</option>
@@ -475,39 +475,39 @@ const Targets: React.FC = () => {
         {/* Targets Table */}
         {isLoading ? (
           <div className="text-center py-8">
-            <div className="inline-block animate-spin rounded-full h-8 w-8 border-4 border-gray-300 border-t-blue-600"></div>
-            <p className="mt-2 text-gray-600">Loading targets...</p>
+            <div className="inline-block animate-spin rounded-full h-8 w-8 border-4 border-gray-600 border-t-blue-600"></div>
+            <p className="mt-2 text-gray-300">Loading targets...</p>
           </div>
         ) : (
           <div className="overflow-x-auto">
-            <table className="min-w-full divide-y divide-gray-200">
-              <thead className="bg-gray-50">
+            <table className="min-w-full divide-y divide-gray-600">
+              <thead className="bg-gray-700">
                 <tr>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Label</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">URL</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Tags</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Success Rate</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Last Tested</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">Label</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">URL</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">Tags</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">Status</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">Success Rate</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">Last Tested</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">Actions</th>
                 </tr>
               </thead>
-              <tbody className="bg-white divide-y divide-gray-200">
+              <tbody className="bg-gray-800 divide-y divide-gray-600">
                 {targets.length > 0 ? (
                   targets.map((target) => (
-                    <tr key={target.id} className="hover:bg-gray-50">
-                      <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+                    <tr key={target.id} className="hover:bg-gray-700">
+                      <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-white">
                         {target.label}
                       </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                        <a href={target.url} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:text-blue-900">
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-white">
+                        <a href={target.url} target="_blank" rel="noopener noreferrer" className="text-blue-400 hover:text-blue-300">
                           {target.url}
                         </a>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
                         <div className="flex flex-wrap gap-1">
                           {target.tags.map((tag, index) => (
-                            <span key={index} className="inline-block bg-blue-100 text-blue-800 text-xs px-2 py-1 rounded">
+                            <span key={index} className="inline-block bg-blue-800 text-blue-200 text-xs px-2 py-1 rounded">
                               {tag}
                             </span>
                           ))}
@@ -518,22 +518,22 @@ const Targets: React.FC = () => {
                           {target.status}
                         </span>
                       </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-white">
                         <div className="flex items-center">
-                          <div className="w-16 bg-gray-200 rounded-full h-2 mr-2">
+                          <div className="w-16 bg-gray-700 rounded-full h-2 mr-2">
                             <div
                               className={`h-2 rounded-full ${
-                                target.success_rate >= 90 ? 'bg-green-500' :
-                                target.success_rate >= 70 ? 'bg-yellow-500' :
+                                (parseFloat(target.success_rate.toString()) || 0) >= 90 ? 'bg-green-500' :
+                                (parseFloat(target.success_rate.toString()) || 0) >= 70 ? 'bg-yellow-500' :
                                 'bg-red-500'
                               }`}
-                              style={{ width: `${target.success_rate}%` }}
+                              style={{ width: `${parseFloat(target.success_rate.toString()) || 0}%` }}
                             ></div>
                           </div>
-                          <span>{target.success_rate.toFixed(1)}%</span>
+                          <span>{target.success_rate}</span>
                         </div>
                       </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-white">
                         {new Date(target.last_tested).toLocaleString()}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
@@ -554,7 +554,7 @@ const Targets: React.FC = () => {
                   ))
                 ) : (
                   <tr>
-                    <td colSpan={7} className="px-6 py-4 text-center text-gray-500">
+                    <td colSpan={7} className="px-6 py-4 text-center text-gray-400">
                       No targets available
                     </td>
                   </tr>
