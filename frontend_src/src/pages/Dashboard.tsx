@@ -148,88 +148,88 @@ const Dashboard: React.FC<{}> = () => {
   const renderOverviewTab = () => (
     <div className="space-y-6">
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-        <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+        <div className="bg-gray-800 rounded-lg shadow-lg border border-gray-700 p-6">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-sm font-medium text-gray-500">Requests Per Second</p>
-              <h3 className="text-2xl font-bold text-gray-900 mt-1">
+              <p className="text-sm font-medium text-gray-400">Requests Per Second</p>
+              <h3 className="text-2xl font-bold text-white mt-1">
                 {metrics?.rps || 0}
               </h3>
             </div>
-            <div className="bg-blue-100 p-3 rounded-full">
-              <TrendingUp className="h-6 w-6 text-blue-600" />
+            <div className="bg-blue-600 p-3 rounded-full">
+              <TrendingUp className="h-6 w-6 text-white" />
             </div>
           </div>
           <div className="mt-4">
-            <div className="h-2 bg-gray-200 rounded-full overflow-hidden">
+            <div className="h-2 bg-gray-700 rounded-full overflow-hidden">
               <div
-                className="h-full bg-blue-600 rounded-full"
+                className="h-full bg-blue-500 rounded-full"
                 style={{ width: `${Math.min(100, ((metrics?.rps || 0) / 100) * 100)}%` }}
               ></div>
             </div>
           </div>
         </div>
 
-        <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+        <div className="bg-gray-800 rounded-lg shadow-lg border border-gray-700 p-6">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-sm font-medium text-gray-500">Active Threads</p>
-              <h3 className="text-2xl font-bold text-gray-900 mt-1">
+              <p className="text-sm font-medium text-gray-400">Active Threads</p>
+              <h3 className="text-2xl font-bold text-white mt-1">
                 {metrics?.active_threads || 0}
               </h3>
             </div>
-            <div className="bg-green-100 p-3 rounded-full">
-              <Users className="h-6 w-6 text-green-600" />
+            <div className="bg-green-600 p-3 rounded-full">
+              <Users className="h-6 w-6 text-white" />
             </div>
           </div>
           <div className="mt-4">
-            <div className="h-2 bg-gray-200 rounded-full overflow-hidden">
+            <div className="h-2 bg-gray-700 rounded-full overflow-hidden">
               <div
-                className="h-full bg-green-600 rounded-full"
+                className="h-full bg-green-500 rounded-full"
                 style={{ width: `${Math.min(100, ((metrics?.active_threads || 0) / threads) * 100)}%` }}
               ></div>
             </div>
           </div>
         </div>
 
-        <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+        <div className="bg-gray-800 rounded-lg shadow-lg border border-gray-700 p-6">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-sm font-medium text-gray-500">Avg. Latency (ms)</p>
-              <h3 className="text-2xl font-bold text-gray-900 mt-1">
+              <p className="text-sm font-medium text-gray-400">Avg. Latency (ms)</p>
+              <h3 className="text-2xl font-bold text-white mt-1">
                 {metrics?.avg_latency || 0}
               </h3>
             </div>
-            <div className="bg-yellow-100 p-3 rounded-full">
-              <Clock className="h-6 w-6 text-yellow-600" />
+            <div className="bg-yellow-600 p-3 rounded-full">
+              <Clock className="h-6 w-6 text-white" />
             </div>
           </div>
           <div className="mt-4">
-            <div className="h-2 bg-gray-200 rounded-full overflow-hidden">
+            <div className="h-2 bg-gray-700 rounded-full overflow-hidden">
               <div
-                className="h-full bg-yellow-600 rounded-full"
+                className="h-full bg-yellow-500 rounded-full"
                 style={{ width: `${Math.min(100, ((metrics?.avg_latency || 0) / 1000) * 100)}%` }}
               ></div>
             </div>
           </div>
         </div>
 
-        <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+        <div className="bg-gray-800 rounded-lg shadow-lg border border-gray-700 p-6">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-sm font-medium text-gray-500">Error Rate (%)</p>
-              <h3 className="text-2xl font-bold text-gray-900 mt-1">
+              <p className="text-sm font-medium text-gray-400">Error Rate (%)</p>
+              <h3 className="text-2xl font-bold text-white mt-1">
                 {metrics?.success_rate ? ((1 - metrics.success_rate) * 100).toFixed(1) : '0.0'}%
               </h3>
             </div>
-            <div className="bg-red-100 p-3 rounded-full">
-              <AlertTriangle className="h-6 w-6 text-red-600" />
+            <div className="bg-red-600 p-3 rounded-full">
+              <AlertTriangle className="h-6 w-6 text-white" />
             </div>
           </div>
           <div className="mt-4">
-            <div className="h-2 bg-gray-200 rounded-full overflow-hidden">
+            <div className="h-2 bg-gray-700 rounded-full overflow-hidden">
               <div
-                className="h-full bg-red-600 rounded-full"
+                className="h-full bg-red-500 rounded-full"
                 style={{ width: `${Math.min(100, ((1 - (metrics?.success_rate || 1)) * 100))}%` }}
               ></div>
             </div>
@@ -238,22 +238,22 @@ const Dashboard: React.FC<{}> = () => {
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-          <h3 className="text-lg font-semibold text-gray-900 mb-4">Current Performance</h3>
+        <div className="bg-gray-800 rounded-lg shadow-lg border border-gray-700 p-6">
+          <h3 className="text-lg font-semibold text-white mb-4">Current Performance</h3>
           <div className="grid grid-cols-2 gap-4">
             <div className="text-center">
-              <p className="text-sm text-gray-500">Current RPS</p>
-              <p className="text-2xl font-bold text-blue-600">{metrics?.current_rps || 0}</p>
+              <p className="text-sm text-gray-400">Current RPS</p>
+              <p className="text-2xl font-bold text-blue-400">{metrics?.current_rps || 0}</p>
             </div>
             <div className="text-center">
-              <p className="text-sm text-gray-500">Total Requests</p>
-              <p className="text-2xl font-bold text-green-600">{metrics?.total_requests || 0}</p>
+              <p className="text-sm text-gray-400">Total Requests</p>
+              <p className="text-2xl font-bold text-green-400">{metrics?.total_requests || 0}</p>
             </div>
           </div>
         </div>
 
-        <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-          <h3 className="text-lg font-semibold text-gray-900 mb-4">Status Code Distribution</h3>
+        <div className="bg-gray-800 rounded-lg shadow-lg border border-gray-700 p-6">
+          <h3 className="text-lg font-semibold text-white mb-4">Status Code Distribution</h3>
           <div className="h-80 flex items-center justify-center">
             {metrics ? (
               <ResponsiveContainer width="100%" height="100%">
@@ -276,27 +276,27 @@ const Dashboard: React.FC<{}> = () => {
                 </PieChart>
               </ResponsiveContainer>
             ) : (
-              <div className="text-gray-500">No data available</div>
+              <div className="text-gray-400">No data available</div>
             )}
           </div>
         </div>
       </div>
 
-      <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-        <h3 className="text-lg font-semibold text-gray-900 mb-4">Active Runs</h3>
+      <div className="bg-gray-800 rounded-lg shadow-lg border border-gray-700 p-6">
+        <h3 className="text-lg font-semibold text-white mb-4">Active Runs</h3>
         <div className="overflow-x-auto">
-          <table className="min-w-full divide-y divide-gray-200">
-            <thead className="bg-gray-50">
+          <table className="min-w-full divide-y divide-gray-600">
+            <thead className="bg-gray-700">
               <tr>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Group ID</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Targets</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Duration</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">Group ID</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">Targets</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">Status</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">Duration</th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Started</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">Actions</th>
               </tr>
             </thead>
-            <tbody className="bg-white divide-y divide-gray-200">
+            <tbody className="bg-gray-800 divide-y divide-gray-600">
               {groupRuns.filter(run => run.status === 'running').length > 0 ? (
                 groupRuns.filter(run => run.status === 'running').map((run) => (
                   <tr key={run.group_id} className="hover:bg-gray-50">
@@ -406,9 +406,9 @@ const Dashboard: React.FC<{}> = () => {
       case 'runs':
         return (
           <div className="space-y-6">
-            <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+            <div className="bg-gray-800 rounded-lg shadow-lg border border-gray-700 p-6">
               <div className="flex justify-between items-center mb-4">
-                <h3 className="text-lg font-semibold text-gray-900">Launch History & Active Runs</h3>
+                <h3 className="text-lg font-semibold text-white">Launch History & Active Runs</h3>
                 <button className="bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500">
                   Export History
                 </button>
@@ -579,8 +579,8 @@ const Dashboard: React.FC<{}> = () => {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-bold text-gray-900">Dashboard</h1>
-          <p className="text-gray-600 mt-1">
+          <h1 className="text-3xl font-bold text-white">Dashboard</h1>
+          <p className="text-gray-300 mt-1">
             Manage and monitor your load testing operations
           </p>
         </div>
@@ -588,20 +588,20 @@ const Dashboard: React.FC<{}> = () => {
           <div className={`w-3 h-3 rounded-full animate-pulse ${
             metricsError ? 'bg-red-500' : metrics ? 'bg-green-500' : 'bg-yellow-500'
           }`}></div>
-          <span className="text-sm text-gray-600">
+          <span className="text-sm text-gray-300">
             {metricsError ? 'System Error' : metrics ? 'System Online' : 'Connecting...'}
           </span>
         </div>
       </div>
 
       {/* BATTLE ATTACK CONTROLS - UNLIMITED MODE */}
-      <div className="bg-gradient-to-r from-red-600 to-red-800 rounded-lg shadow-lg border border-red-700 p-6 text-white">
+      <div className="bg-gradient-to-r from-gray-800 to-gray-900 rounded-lg shadow-lg border border-gray-700 p-6 text-white">
         <h3 className="text-xl font-bold mb-4">🚀 BATTLE ATTACK CONTROLS - UNLIMITED MODE</h3>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div>
             <button 
               onClick={() => handleStartAttack('battle_mode')}
-              className="w-full bg-green-600 text-white px-6 py-4 rounded-lg hover:bg-green-700 focus:outline-none focus:ring-4 focus:ring-green-500 font-bold text-lg shadow-lg transform hover:scale-105 transition-all"
+              className="w-full bg-blue-600 text-white px-6 py-4 rounded-lg hover:bg-blue-700 focus:outline-none focus:ring-4 focus:ring-blue-500 font-bold text-lg shadow-lg transform hover:scale-105 transition-all"
             >
               ⚡ START MAXIMUM ATTACK (100K+ THREADS)
             </button>
@@ -623,8 +623,8 @@ const Dashboard: React.FC<{}> = () => {
       </div>
 
       {/* UNLIMITED PARALLEL GROUPS CONFIGURATION */}
-      <div className="bg-gradient-to-r from-purple-600 to-purple-800 rounded-lg shadow-lg border border-purple-700 p-6 text-white">
-        <h3 className="text-xl font-bold mb-4">🔄 UNLIMITED PARALLEL GROUPS CONFIGURATION</h3>
+      <div className="bg-gradient-to-r from-blue-800 to-blue-900 rounded-lg shadow-lg border border-blue-700 p-6 text-white">
+        <h3 className="text-xl font-bold mb-4">🚀 UNLIMITED PARALLEL GROUPS CONFIGURATION</h3>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           <div>
             <label className="block text-sm font-medium mb-2">Parallel Groups Count</label>
@@ -633,7 +633,7 @@ const Dashboard: React.FC<{}> = () => {
               min="1" 
               max="1000" 
               defaultValue="100"
-              className="w-full px-3 py-2 bg-purple-700 border border-purple-600 rounded-md text-white placeholder-purple-300"
+              className="w-full px-3 py-2 bg-blue-700 border border-blue-600 rounded-md text-white placeholder-blue-300"
               placeholder="Unlimited (default: 100)"
             />
             <p className="text-xs mt-1 opacity-75">Set to 1000 for maximum parallel execution</p>
@@ -645,7 +645,7 @@ const Dashboard: React.FC<{}> = () => {
               min="1000" 
               max="100000" 
               defaultValue="10000"
-              className="w-full px-3 py-2 bg-purple-700 border border-purple-600 rounded-md text-white placeholder-purple-300"
+              className="w-full px-3 py-2 bg-blue-700 border border-blue-600 rounded-md text-white placeholder-blue-300"
               placeholder="10,000"
             />
             <p className="text-xs mt-1 opacity-75">Recommended: 10,000-100,000 per group</p>
@@ -657,7 +657,7 @@ const Dashboard: React.FC<{}> = () => {
               min="100" 
               max="5000" 
               defaultValue="1000"
-              className="w-full px-3 py-2 bg-purple-700 border border-purple-600 rounded-md text-white placeholder-purple-300"
+              className="w-full px-3 py-2 bg-blue-700 border border-blue-600 rounded-md text-white placeholder-blue-300"
               placeholder="1000ms"
             />
             <p className="text-xs mt-1 opacity-75">Delay between launching parallel groups</p>
@@ -666,7 +666,7 @@ const Dashboard: React.FC<{}> = () => {
         <div className="mt-4 grid grid-cols-1 md:grid-cols-2 gap-4">
           <div>
             <label className="block text-sm font-medium mb-2">Attack Strategy</label>
-            <select className="w-full px-3 py-2 bg-purple-700 border border-purple-600 rounded-md text-white">
+            <select className="w-full px-3 py-2 bg-blue-700 border border-blue-600 rounded-md text-white">
               <option value="adaptive">Adaptive Escalation</option>
               <option value="aggressive">Maximum Aggressive</option>
               <option value="stealth">Stealth Mode</option>
@@ -675,7 +675,7 @@ const Dashboard: React.FC<{}> = () => {
           </div>
           <div>
             <label className="block text-sm font-medium mb-2">Target Distribution</label>
-            <select className="w-full px-3 py-2 bg-purple-700 border border-purple-600 rounded-md text-white">
+            <select className="w-full px-3 py-2 bg-blue-700 border border-blue-600 rounded-md text-white">
               <option value="round_robin">Round Robin</option>
               <option value="random">Random Distribution</option>
               <option value="weighted">Weighted by Response</option>
@@ -685,15 +685,15 @@ const Dashboard: React.FC<{}> = () => {
         </div>
         <div className="mt-4 flex items-center space-x-4">
           <label className="flex items-center">
-            <input type="checkbox" defaultChecked className="mr-2 rounded bg-purple-700 border-purple-600" />
+            <input type="checkbox" defaultChecked className="mr-2 rounded bg-blue-700 border-blue-600" />
             <span className="text-sm">Enable Auto-Scaling</span>
           </label>
           <label className="flex items-center">
-            <input type="checkbox" defaultChecked className="mr-2 rounded bg-purple-700 border-purple-600" />
+            <input type="checkbox" defaultChecked className="mr-2 rounded bg-blue-700 border-blue-600" />
             <span className="text-sm">Dynamic Thread Adjustment</span>
           </label>
           <label className="flex items-center">
-            <input type="checkbox" defaultChecked className="mr-2 rounded bg-purple-700 border-purple-600" />
+            <input type="checkbox" defaultChecked className="mr-2 rounded bg-blue-700 border-blue-600" />
             <span className="text-sm">Failure Recovery</span>
           </label>
         </div>
@@ -704,7 +704,7 @@ const Dashboard: React.FC<{}> = () => {
       </div>
 
       {/* PROXY COLLECTION & ROTATION */}
-      <div className="bg-gradient-to-r from-green-600 to-green-800 rounded-lg shadow-lg border border-green-700 p-6 text-white">
+      <div className="bg-gradient-to-r from-green-800 to-green-900 rounded-lg shadow-lg border border-green-700 p-6 text-white">
         <h3 className="text-xl font-bold mb-4">🔄 PROXY COLLECTION & ROTATION</h3>
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
           <div>
@@ -738,7 +738,7 @@ const Dashboard: React.FC<{}> = () => {
             <p className="text-xs mt-1 opacity-75">Maximum proxies to maintain in pool</p>
           </div>
           <div className="flex items-end">
-            <button className="w-full bg-green-500 text-white px-4 py-2 rounded-md hover:bg-green-400 focus:outline-none focus:ring-2 focus:ring-green-300">
+            <button className="w-full bg-green-600 text-white px-4 py-2 rounded-md hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-green-300">
               🔄 Force Update Now
             </button>
           </div>
@@ -791,8 +791,8 @@ const Dashboard: React.FC<{}> = () => {
         </div>
       </div>
 
-      <div className="bg-white rounded-lg shadow-sm border border-gray-200">
-        <div className="border-b border-gray-200">
+      <div className="bg-gray-900 rounded-lg shadow-lg border border-gray-700">
+        <div className="border-b border-gray-700">
           <nav className="flex space-x-8 px-6" aria-label="Tabs">
             {tabs.map((tab) => {
               const Icon = tab.icon;
@@ -802,8 +802,8 @@ const Dashboard: React.FC<{}> = () => {
                   onClick={() => setActiveTab(tab.id as TabType)}
                   className={`${
                     activeTab === tab.id
-                      ? 'border-blue-500 text-blue-600'
-                      : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                      ? 'border-blue-500 text-blue-400'
+                      : 'border-transparent text-gray-400 hover:text-gray-300 hover:border-gray-600'
                   } whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm flex items-center space-x-2`}
                 >
                   <Icon className="h-4 w-4" />
