@@ -382,16 +382,16 @@ const Dashboard: React.FC<{}> = () => {
           </div>
           <div className="mt-4 grid grid-cols-1 md:grid-cols-4 gap-4 text-sm opacity-90">
             <div>
-              <p>🎯 Attack Methods: {unlimitedMetrics.active_attack_methods || 0}</p>
+              <p>🎯 Attack Methods: {unlimitedMetrics.attack_methods_active ? Object.values(unlimitedMetrics.attack_methods_active).reduce((sum: number, count: any) => sum + (Number(count) || 0), 0) : 0}</p>
             </div>
             <div>
-              <p>🔀 Stealth Sessions: {unlimitedMetrics.active_stealth_sessions || 0}</p>
+              <p>🔀 Stealth Sessions: {unlimitedMetrics.stealth_rotation_stats?.ja3_rotations_per_min || 0}/min</p>
             </div>
             <div>
               <p>🌐 Proxy Sources: {unlimitedMetrics.proxy_sources_active || 0}</p>
             </div>
             <div>
-              <p>⚡ Escalation: {unlimitedMetrics.escalation_engine_status || 'Inactive'}</p>
+              <p>⚡ Escalation: {unlimitedMetrics.escalation_engine_status?.auto_scaling_enabled ? 'Active' : 'Inactive'}</p>
             </div>
           </div>
         </div>
