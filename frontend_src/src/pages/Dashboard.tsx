@@ -406,7 +406,7 @@ const Dashboard: React.FC<{}> = () => {
       case 'runs':
         return (
           <div className="space-y-6">
-            <div className="bg-white rounded-lg shadow-md border border-gray-200 p-6">
+            <div className="bg-white/95 backdrop-blur-sm rounded-lg shadow-xl border border-white/20 p-6">
               <div className="flex justify-between items-center mb-4">
                 <h3 className="text-lg font-semibold text-gray-900">Launch History & Active Runs</h3>
                 <button className="bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 shadow-md">
@@ -595,7 +595,7 @@ const Dashboard: React.FC<{}> = () => {
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-        <div className="bg-white rounded-lg shadow-md border border-gray-200 p-6">
+        <div className="bg-white/95 backdrop-blur-sm rounded-lg shadow-xl border border-white/20 p-6">
           <div className="flex items-center">
             <div className="flex-shrink-0">
               <Database className="h-8 w-8 text-blue-600" />
@@ -609,7 +609,7 @@ const Dashboard: React.FC<{}> = () => {
           </div>
         </div>
 
-        <div className="bg-white rounded-lg shadow-md border border-gray-200 p-6">
+        <div className="bg-white/95 backdrop-blur-sm rounded-lg shadow-xl border border-white/20 p-6">
           <div className="flex items-center">
             <div className="flex-shrink-0">
               <TrendingUp className="h-8 w-8 text-green-600" />
@@ -623,7 +623,7 @@ const Dashboard: React.FC<{}> = () => {
           </div>
         </div>
 
-        <div className="bg-white rounded-lg shadow-md border border-gray-200 p-6">
+        <div className="bg-white/95 backdrop-blur-sm rounded-lg shadow-xl border border-white/20 p-6">
           <div className="flex items-center">
             <div className="flex-shrink-0">
               <BarChart3 className="h-8 w-8 text-purple-600" />
@@ -637,7 +637,7 @@ const Dashboard: React.FC<{}> = () => {
           </div>
         </div>
 
-        <div className="bg-white rounded-lg shadow-md border border-gray-200 p-6">
+        <div className="bg-white/95 backdrop-blur-sm rounded-lg shadow-xl border border-white/20 p-6">
           <div className="flex items-center">
             <div className="flex-shrink-0">
               <Users className="h-8 w-8 text-orange-600" />
@@ -653,7 +653,7 @@ const Dashboard: React.FC<{}> = () => {
       </div>
 
       {/* BATTLE ATTACK CONTROLS - UNLIMITED MODE */}
-      <div className="bg-white rounded-lg shadow-md border border-gray-200 p-6">
+      <div className="bg-white/95 backdrop-blur-sm rounded-lg shadow-xl border border-white/20 p-6">
         <h3 className="text-xl font-bold mb-4 text-gray-900">🚀 BATTLE ATTACK CONTROLS - UNLIMITED MODE</h3>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div>
@@ -681,7 +681,7 @@ const Dashboard: React.FC<{}> = () => {
       </div>
 
       {/* UNLIMITED PARALLEL GROUPS CONFIGURATION */}
-      <div className="bg-white rounded-lg shadow-md border border-gray-200 p-6">
+      <div className="bg-white/95 backdrop-blur-sm rounded-lg shadow-xl border border-white/20 p-6">
         <h3 className="text-xl font-bold mb-4 text-gray-900">🚀 UNLIMITED PARALLEL GROUPS CONFIGURATION</h3>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           <div>
@@ -762,7 +762,7 @@ const Dashboard: React.FC<{}> = () => {
       </div>
 
       {/* PROXY COLLECTION & ROTATION */}
-      <div className="bg-white rounded-lg shadow-md border border-gray-200 p-6">
+      <div className="bg-white/95 backdrop-blur-sm rounded-lg shadow-xl border border-white/20 p-6">
         <h3 className="text-xl font-bold mb-4 text-gray-900">🔄 PROXY COLLECTION & ROTATION</h3>
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
           <div>
@@ -849,7 +849,7 @@ const Dashboard: React.FC<{}> = () => {
         </div>
       </div>
 
-      <div className="bg-white rounded-lg shadow-md border border-gray-200">
+      <div className="bg-white/95 backdrop-blur-sm rounded-lg shadow-xl border border-white/20">
         <div className="border-b border-gray-200">
           <nav className="flex space-x-8 px-6" aria-label="Tabs">
             {tabs.map((tab) => {
