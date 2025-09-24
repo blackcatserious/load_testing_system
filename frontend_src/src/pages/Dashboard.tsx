@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { Home, Wrench, Rocket, Terminal, Shield, Users, ShoppingCart, FileText, Database, Zap, Activity } from 'lucide-react';
 import { LineChart, Line, XAxis, YAxis, ResponsiveContainer } from 'recharts';
 
-const Dashboard: React.FC<{}> = () => {
+const Dashboard = () => {
   const [activeMenuItem, setActiveMenuItem] = useState('HOME');
 
   const menuItems = [
