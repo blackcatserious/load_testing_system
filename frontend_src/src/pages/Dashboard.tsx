@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { Home, Wrench, Rocket, Terminal, Shield, Users, ShoppingCart, FileText, Database, Zap, Activity } from 'lucide-react';
 import { LineChart, Line, XAxis, YAxis, ResponsiveContainer } from 'recharts';
 
