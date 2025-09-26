@@ -12,6 +12,7 @@ module.exports = {
     ecmaFeatures: {
       jsx: true,
     },
+    warnOnUnsupportedTypeScriptVersion: false,
   },
   settings: {
     react: {
