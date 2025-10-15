@@ -13,8 +13,21 @@ import type {
   StopTestRequest
 } from './types';
 
+const envBaseURL = import.meta.env.VITE_API_BASE_URL?.trim();
+const normalizeBaseURL = (url: string): string => {
+  const trimmed = url.replace(/\/+$/, '');
+  if (/^https?:\/\//i.test(trimmed) || trimmed.startsWith('//')) {
+    return trimmed;
+  }
+  return trimmed.startsWith('/') ? trimmed : `/${trimmed}`;
+};
+
+const normalizedBaseURL = envBaseURL && envBaseURL.length > 0
+  ? normalizeBaseURL(envBaseURL)
+  : '/api';
+
 const api = axios.create({
-  baseURL: '/api',
+  baseURL: normalizedBaseURL,
   timeout: 30000,
   headers: {
     'Content-Type': 'application/json',

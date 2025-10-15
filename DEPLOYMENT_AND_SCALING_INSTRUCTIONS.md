@@ -58,6 +58,15 @@ npm install
 npm run build
 ```
 
+### API Base URL Configuration
+- By default the production build issues requests to the backend using the relative path `/api`, which allows the frontend and PHP API to be hosted from the same origin.
+- When the API is deployed to a different host or path, provide an explicit override at build time:
+  ```bash
+  VITE_API_BASE_URL="https://api.example.com/load-testing" npm run build
+  ```
+- Any value supplied through `VITE_API_BASE_URL` is normalised to avoid duplicate slashes and can point to either an absolute URL or a relative path such as `/backend`.
+- Make sure your reverse proxy or web server forwards the chosen path to the PHP endpoints (for example, proxying `/api` to the `api/` directory) so the relative URLs resolve correctly.
+
 ### FTP Deployment Script
 ```python
 #!/usr/bin/env python3
