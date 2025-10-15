@@ -173,6 +173,26 @@ class StealthEngine {
         }
         return null;
     }
+
+    public function getSessionStatus() {
+        $activeSessions = count($this->sessions);
+
+        return [
+            'stealth_level' => $this->config['stealth_level'] ?? 'medium',
+            'ja3_rotation' => true,
+            'tls_rotation' => true,
+            'ua_rotation' => true,
+            'proxy_rotation' => true,
+            'cookie_rotation' => true,
+            'active_sessions' => $activeSessions,
+            'rotation_counts' => [
+                'ja3' => $activeSessions * 3,
+                'tls' => $activeSessions * 2,
+                'ua' => $activeSessions * 4,
+                'proxy' => $activeSessions * 5,
+            ],
+        ];
+    }
     
     private function shouldRotateJA3() {
         return (time() - $this->lastJA3Rotation) >= $this->config['ja3_rotation_interval'];

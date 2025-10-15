@@ -29,7 +29,21 @@ class TLSProfile {
     private $rotationInterval = 15;
     
     public function getCurrentProfile() {
-        return $this->profiles[$this->currentProfileIndex];
+        $profile = $this->profiles[$this->currentProfileIndex];
+
+        if (!isset($profile['cipher_suites'])) {
+            $parts = explode(',', $profile['ja3_fingerprint']);
+            $profile['cipher_suites'] = isset($parts[1]) ? explode('-', $parts[1]) : [];
+        }
+
+        if (!isset($profile['extensions'])) {
+            $parts = explode(',', $profile['ja3_fingerprint']);
+            $profile['extensions'] = isset($parts[2]) ? explode('-', $parts[2]) : [];
+        }
+
+        $this->profiles[$this->currentProfileIndex] = $profile;
+
+        return $profile;
     }
     
     public function rotateProfile() {
