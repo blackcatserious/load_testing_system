@@ -1,0 +1,25 @@
+{
+  "name": "pulse-load-platform-server",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "ts-node-dev --respawn --transpile-only src/index.ts",
+    "build": "tsc --project tsconfig.json",
+    "start": "node dist/index.js",
+    "lint": "eslint 'src/**/*.ts'"
+  },
+  "dependencies": {
+    "cors": "^2.8.5",
+    "dayjs": "^1.11.10",
+    "express": "^4.19.2",
+    "nanoid": "^4.0.2"
+  },
+  "devDependencies": {
+    "@types/cors": "^2.8.17",
+    "@types/express": "^4.17.21",
+    "@types/node": "^20.12.7",
+    "ts-node-dev": "^2.0.0",
+    "typescript": "^5.4.3"
+  }
+}

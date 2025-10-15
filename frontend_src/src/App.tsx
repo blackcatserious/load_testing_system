@@ -1,7 +1,8 @@
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import Dashboard from './pages/Dashboard';
 import Reports from './pages/Reports';
-import Targets from './pages/Targets';
+import TestPlans from './pages/TestPlans';
+import Runs from './pages/Runs';
 import Header from './components/Header';
 import './index.css';
 
@@ -14,9 +15,9 @@ function App() {
           <Routes>
             <Route path="/" element={<Navigate to="/dashboard" replace />} />
             <Route path="/dashboard" element={<Dashboard />} />
-            <Route path="/targets" element={<Targets />} />
+            <Route path="/plans" element={<TestPlans />} />
+            <Route path="/runs" element={<Runs />} />
             <Route path="/reports" element={<Reports />} />
-            <Route path="/runs" element={<Dashboard />} />
           </Routes>
         </main>
       </div>

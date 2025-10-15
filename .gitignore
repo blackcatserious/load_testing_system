@@ -36,3 +36,5 @@ temp/
 
 # Data files
 data/
+!server/src/data/
+!server/src/data/**
