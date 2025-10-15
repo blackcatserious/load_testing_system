@@ -58,6 +58,13 @@ npm install
 npm run build
 ```
 
+### API Base URL Configuration
+
+- By default, the frontend expects the PHP API to be available under the same origin at the relative path `/api`, which aligns with the repository's production bundle in `deployment_ready/`.
+- If your API is hosted on a different domain or subdomain, define a `VITE_API_BASE_URL` environment variable (or add it to an `.env` file) before running `npm run build`/`npm run dev`.
+- Example: `VITE_API_BASE_URL=https://api.your-domain.com` will cause the UI to make requests such as `https://api.your-domain.com/health_endpoint.php`.
+- When reverse proxying, ensure the web server forwards `/api/*` requests to the backend while continuing to serve the static frontend assets from the same origin for the default configuration to work.
+
 ### FTP Deployment Script
 ```python
 #!/usr/bin/env python3
