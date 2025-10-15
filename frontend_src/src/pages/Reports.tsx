@@ -1,179 +1,105 @@
-import React from 'react';
-import { useReports } from '../api/hooks';
-import { Download, FileText, Calendar, Database } from 'lucide-react';
+import React, { useEffect, useState } from 'react';
+import { Download, FileText, Share2 } from 'lucide-react';
+import api from '../lib/api';
+import LoadingState from '../components/LoadingState';
+import ErrorState from '../components/ErrorState';
+import dayjs from '../setupDayjs';
+import type { TestReport } from '../types';
 
 const Reports: React.FC = () => {
-  const { data: reports, loading, error, downloadReport } = useReports();
+  const [reports, setReports] = useState<TestReport[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    api
+      .get<TestReport[]>('/reports')
+      .then((response) => {
+        setReports(response.data);
+        setError(null);
+      })
+      .catch((err) => setError(err.message ?? 'Unable to load reports'))
+      .finally(() => setLoading(false));
+  }, []);
 
   if (loading) {
-    return (
-      <div className="flex items-center justify-center h-64">
-        <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-blue-500"></div>
-      </div>
-    );
+    return <LoadingState label="Indexing reports" />;
   }
 
   if (error) {
-    return (
-      <div className="bg-red-50 border border-red-200 rounded-md p-4">
-        <div className="flex">
-          <div className="flex-shrink-0">
-            <svg className="h-5 w-5 text-red-400" viewBox="0 0 20 20" fill="currentColor">
-              <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
-            </svg>
-          </div>
-          <div className="ml-3">
-            <h3 className="text-sm font-medium text-red-800">Error loading reports</h3>
-            <div className="mt-2 text-sm text-red-700">
-              <p>{error}</p>
-            </div>
-          </div>
-        </div>
-      </div>
-    );
+    return <ErrorState description={error} />;
   }
 
-  const handleDownload = async (filename: string) => {
-    try {
-      await downloadReport(filename);
-    } catch (err) {
-      console.error('Failed to download report:', err);
-    }
-  };
-
-  const formatFileSize = (bytes: number) => {
-    if (bytes === 0) return '0 Bytes';
-    const k = 1024;
-    const sizes = ['Bytes', 'KB', 'MB', 'GB'];
-    const i = Math.floor(Math.log(bytes) / Math.log(k));
-    return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
-  };
-
-  const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleString();
-  };
-
   return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between">
+    <div className="mx-auto flex max-w-7xl flex-col gap-8 px-4 pb-16 sm:px-6 lg:px-8">
+      <header className="flex flex-wrap items-center justify-between gap-4">
         <div>
-          <h1 className="text-3xl font-bold text-gray-900">Reports</h1>
-          <p className="text-gray-600 mt-1">
-            Download and view load testing reports
+          <p className="text-xs font-semibold uppercase tracking-[0.35em] text-slate-500">Reports</p>
+          <h1 className="mt-2 text-3xl font-semibold text-white">Intelligence archive</h1>
+          <p className="mt-2 max-w-2xl text-sm text-slate-300">
+            Publish findings faster with structured insights, pre-baked sections, and export automations for every stakeholder.
           </p>
         </div>
-        <div className="flex items-center space-x-2">
-          <Database className="h-5 w-5 text-gray-500" />
-          <span className="text-sm text-gray-600">
-            {reports?.length || 0} reports available
-          </span>
-        </div>
-      </div>
+        <button className="flex items-center gap-2 rounded-full border border-slate-700/70 px-4 py-2 text-sm font-semibold text-slate-200 transition hover:border-indigo-400/70 hover:text-white">
+          <Share2 className="h-4 w-4" />
+          Share workspace
+        </button>
+      </header>
 
-      <div className="bg-white shadow-md rounded-lg border border-gray-200">
-        <div className="px-6 py-4 border-b border-gray-200">
-          <h2 className="text-lg font-medium text-gray-900">Available Reports</h2>
-        </div>
-        
-        {!reports || reports.length === 0 ? (
-          <div className="px-6 py-12 text-center">
-            <FileText className="mx-auto h-12 w-12 text-gray-400" />
-            <h3 className="mt-2 text-sm font-medium text-gray-900">No reports available</h3>
-            <p className="mt-1 text-sm text-gray-500">
-              Run some load tests to generate reports.
-            </p>
-          </div>
-        ) : (
-          <div className="overflow-hidden">
-            <table className="min-w-full divide-y divide-gray-200">
-              <thead className="bg-gray-50">
-                <tr>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Report
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Type
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Size
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Created
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Run Info
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Actions
-                  </th>
-                </tr>
-              </thead>
-              <tbody className="bg-white divide-y divide-gray-200">
-                {reports.map((report) => (
-                  <tr key={report.filename} className="hover:bg-gray-50">
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="flex items-center">
-                        <FileText className="h-5 w-5 text-gray-400 mr-3" />
-                        <div>
-                          <div className="text-sm font-medium text-gray-900">
-                            {report.filename}
-                          </div>
-                        </div>
-                      </div>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
-                        report.type === 'json' 
-                          ? 'bg-blue-100 text-blue-800' 
-                          : 'bg-green-100 text-green-800'
-                      }`}>
-                        {report.type.toUpperCase()}
-                      </span>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                      {formatFileSize(report.size)}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                      <div className="flex items-center">
-                        <Calendar className="h-4 w-4 text-gray-400 mr-2" />
-                        {formatDate(report.created_at)}
-                      </div>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                      {report.run_info ? (
-                        <div>
-                          <div className="font-medium">Run: {report.run_id}</div>
-                          <div className="text-gray-500 text-xs">
-                            {report.run_info.target_url}
-                          </div>
-                          {report.run_info.finished_at && (
-                            <div className="text-gray-500 text-xs">
-                              Finished: {formatDate(report.run_info.finished_at)}
-                            </div>
-                          )}
-                        </div>
-                      ) : (
-                        <span className="text-gray-500">No run info</span>
-                      )}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                      <div className="flex space-x-2">
-                        <button
-                          onClick={() => handleDownload(report.filename)}
-                          className="inline-flex items-center px-3 py-1 border border-transparent text-xs font-medium rounded text-blue-700 bg-blue-100 hover:bg-blue-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
-                        >
-                          <Download className="h-3 w-3 mr-1" />
-                          Download
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )}
-      </div>
+      <section className="grid gap-6 md:grid-cols-2">
+        {reports.map((report) => (
+          <article key={report.id} className="flex flex-col gap-4 rounded-3xl border border-slate-800/80 bg-slate-900/40 p-6">
+            <header className="flex flex-wrap items-start justify-between gap-3">
+              <div>
+                <div className="text-xs uppercase tracking-[0.35em] text-slate-500">{report.planId}</div>
+                <h2 className="mt-2 text-xl font-semibold text-white">{report.title}</h2>
+                <p className="mt-2 text-xs text-slate-400">Generated {dayjs(report.generatedAt).fromNow()} by {report.author}</p>
+              </div>
+              <span className="rounded-full bg-indigo-500/20 px-3 py-1 text-xs font-semibold uppercase tracking-[0.35em] text-indigo-200">
+                {report.format}
+              </span>
+            </header>
+            <div className="grid gap-3 rounded-2xl border border-slate-800/60 bg-slate-900/60 p-4 text-sm text-slate-200">
+              <div className="grid grid-cols-2 gap-2 text-[11px] uppercase tracking-[0.35em] text-slate-500">
+                <p>Peak throughput</p>
+                <p>{report.metrics.peakThroughput.toLocaleString()} rps</p>
+                <p>Average latency</p>
+                <p>{report.metrics.avgLatency} ms</p>
+                <p>Error rate</p>
+                <p>{report.metrics.errorRate}%</p>
+                <p>Availability</p>
+                <p>{report.metrics.availability}%</p>
+              </div>
+            </div>
+            <div className="grid gap-3 text-sm text-slate-300">
+              {report.sections.map((section) => (
+                <div key={section.title} className="rounded-2xl border border-slate-800/60 bg-slate-900/60 p-4">
+                  <p className="text-xs uppercase tracking-[0.35em] text-slate-500">{section.title}</p>
+                  <p className="mt-2 text-sm text-slate-200">{section.summary}</p>
+                  <ul className="mt-3 flex list-disc flex-col gap-1 pl-5 text-xs text-slate-400">
+                    {section.insights.map((insight) => (
+                      <li key={insight}>{insight}</li>
+                    ))}
+                  </ul>
+                </div>
+              ))}
+            </div>
+            <footer className="flex flex-wrap items-center justify-between gap-3">
+              <div className="text-xs text-slate-400">Run {report.runId} • Last updated {dayjs(report.generatedAt).format('MMM D, HH:mm')}</div>
+              <div className="flex items-center gap-2">
+                <button className="flex items-center gap-2 rounded-full border border-slate-700/70 px-4 py-2 text-xs font-semibold text-slate-200 transition hover:border-indigo-400/70 hover:text-white">
+                  <FileText className="h-4 w-4" />
+                  Open
+                </button>
+                <button className="flex items-center gap-2 rounded-full bg-gradient-to-r from-indigo-500 via-blue-500 to-cyan-400 px-4 py-2 text-xs font-semibold text-white shadow-lg shadow-indigo-500/30 transition hover:brightness-105">
+                  <Download className="h-4 w-4" />
+                  Export
+                </button>
+              </div>
+            </footer>
+          </article>
+        ))}
+      </section>
     </div>
   );
 };
