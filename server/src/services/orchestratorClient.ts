@@ -23,6 +23,10 @@ export class OrchestratorClient {
     });
   }
 
+  getBaseUrl(): string {
+    return this.config.baseUrl;
+  }
+
   private async request<T>(options: RequestOptions): Promise<T> {
     try {
       const response = await this.client.request<T>(options);

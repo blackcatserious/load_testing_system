@@ -126,4 +126,14 @@ describe('API integration', () => {
     expect(response.body.status).toBe('success');
     expect(Array.isArray(response.body.data?.reports)).toBe(true);
   });
+
+  test('unhandled PHP endpoints are proxied to the orchestrator', async () => {
+    const response = await supertest(app)
+      .get('/api/client_profile.php')
+      .query({ action: 'list' });
+
+    expect(response.status).toBe(200);
+    expect(response.body).toHaveProperty('success', true);
+    expect(response.body).toHaveProperty('profiles');
+  });
 });
