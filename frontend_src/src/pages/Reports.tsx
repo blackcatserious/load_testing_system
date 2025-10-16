@@ -1,19 +1,24 @@
 import React from 'react';
 import { Download, FileText, Calendar, Database, Shield } from 'lucide-react';
 import { useReports } from '../api/hooks';
-import type { Report } from '../api/types';
+import type { ReportSummary } from '../api/types';
 
-const describeReport = (report: Report): string => {
+const describeReport = (report: ReportSummary): string => {
   if (report.summary) {
     const { total_requests, success_rate, avg_response_time } = report.summary;
-    const parts = [
-      `Requests ${total_requests.toLocaleString()}`,
-      `Success ${success_rate}%`,
-    ];
+    const parts: string[] = [];
+    if (typeof total_requests === 'number') {
+      parts.push(`Requests ${total_requests.toLocaleString()}`);
+    }
+    if (typeof success_rate === 'number') {
+      parts.push(`Success ${success_rate}%`);
+    }
     if (typeof avg_response_time === 'number') {
       parts.push(`Avg ${avg_response_time}ms`);
     }
-    return parts.join(' · ');
+    if (parts.length > 0) {
+      return parts.join(' · ');
+    }
   }
 
   if (report.run_info) {

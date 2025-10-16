@@ -1,134 +1,192 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import {
   Activity,
   AlertTriangle,
+  ArrowUpRight,
+  BarChart3,
+  Gauge,
   Globe2,
-  LineChart as LineChartIcon,
-  Radar,
-  Server,
+  Loader2,
   Shield,
-  Signal,
-  Users,
-  Zap,
+  Target,
+  Timer,
+  Wifi,
 } from 'lucide-react';
-import { LineChart, Line, XAxis, YAxis, ResponsiveContainer, Tooltip } from 'recharts';
+import { useDashboardMetrics } from '../api/hooks';
 
-const chartData = [
-  { time: '00:00', success: 45, error: 12 },
-  { time: '04:00', success: 52, error: 8 },
-  { time: '08:00', success: 48, error: 15 },
-  { time: '12:00', success: 61, error: 7 },
-  { time: '16:00', success: 55, error: 11 },
-  { time: '20:00', success: 67, error: 5 },
-  { time: '24:00', success: 59, error: 9 },
-];
+const formatNumber = (value: number | undefined) =>
+  typeof value === 'number' && Number.isFinite(value) ? value.toLocaleString() : '—';
 
-const statHighlights = [
-  {
-    label: 'Registered Operators',
-    value: '632,576',
-    delta: '+3.4%',
-    icon: Users,
-    tone: 'from-emerald-500/20 to-emerald-500/5 text-emerald-300',
-  },
-  {
-    label: 'Active Domains',
-    value: '52',
-    delta: '+11',
-    icon: Globe2,
-    tone: 'from-sky-500/20 to-sky-500/5 text-sky-300',
-  },
-  {
-    label: 'Live Stressors',
-    value: '113',
-    delta: '+18%',
-    icon: Zap,
-    tone: 'from-blue-500/20 to-blue-500/5 text-blue-300',
-  },
-  {
-    label: 'Escalations',
-    value: '29',
-    delta: 'stable',
-    icon: Activity,
-    tone: 'from-indigo-500/20 to-indigo-500/5 text-indigo-300',
-  },
-];
+const formatPercent = (value: number | undefined) =>
+  typeof value === 'number' && Number.isFinite(value) ? `${value.toFixed(1)}%` : '—';
 
-const radarMetrics = [
-  { label: 'Anti-DDoS Bypass', score: 92 },
-  { label: 'Proxy Hygiene', score: 86 },
-  { label: 'Stealth Fingerprinting', score: 94 },
-  { label: 'TLS Profile Drift', score: 88 },
-];
+const formatLatency = (value: number | undefined) => {
+  if (typeof value !== 'number' || !Number.isFinite(value)) {
+    return '—';
+  }
+  if (value < 1000) {
+    return `${value.toFixed(0)} ms`;
+  }
+  return `${(value / 1000).toFixed(2)} s`;
+};
 
-const activityFeed = [
-  {
-    title: 'New Telegram News Channel',
-    description: 'Stay synced with deployment advisories and new evasion kits.',
-    time: '2 hours ago',
-  },
-  {
-    title: 'Package downgrade reminder',
-    description: 'Confirm plan alignment before the nightly automation window.',
-    time: '4 hours ago',
-  },
-  {
-    title: 'Cross-platform validation',
-    description: 'Domain skins refreshed for mobile & console deployments.',
-    time: '6 hours ago',
-  },
-  {
-    title: 'Terms & conditions refresh',
-    description: 'Updated compliance matrix for customer managed attacks.',
-    time: '8 hours ago',
-  },
-];
+const formatDuration = (seconds: number | undefined) => {
+  if (typeof seconds !== 'number' || !Number.isFinite(seconds)) {
+    return '—';
+  }
+  const hours = Math.floor(seconds / 3600);
+  const mins = Math.floor((seconds % 3600) / 60);
+  const parts = [];
+  if (hours > 0) parts.push(`${hours}h`);
+  if (mins > 0 || parts.length === 0) parts.push(`${mins}m`);
+  return parts.join(' ');
+};
 
-const sentinelCards = [
-  {
-    title: 'Proxy Pools',
-    value: '10.4M',
-    subtitle: 'rotating & residential',
-    icon: Server,
-    status: 'Healthy',
-  },
-  {
-    title: 'User Agents',
-    value: '4,100+',
-    subtitle: 'fingerprint kits online',
-    icon: Radar,
-    status: 'Syncing',
-  },
-  {
-    title: 'TLS Profiles',
-    value: '78',
-    subtitle: 'stealth blends enabled',
-    icon: Shield,
-    status: 'Adaptive',
-  },
-];
+const emptyState = (
+  <div className="flex min-h-[320px] flex-col items-center justify-center gap-4 rounded-3xl border border-white/10 bg-slate-900/70 p-10 text-white/70">
+    <Shield className="h-12 w-12 text-white/40" />
+    <div className="text-center">
+      <h3 className="text-xl font-semibold text-white">No telemetry yet</h3>
+      <p className="mt-2 text-sm text-white/60">Run an orchestration cycle to populate real-time metrics.</p>
+    </div>
+  </div>
+);
 
 const Dashboard: React.FC = () => {
+  const { data: metrics, loading, error } = useDashboardMetrics();
+
+  const statusCodes = useMemo(() => {
+    if (!metrics) return [] as Array<{ code: string; count: number }>;
+    return Object.entries(metrics.status_codes)
+      .map(([code, count]) => ({ code, count }))
+      .sort((a, b) => b.count - a.count)
+      .slice(0, 6);
+  }, [metrics]);
+
+  const targetSummaries = useMemo(() => {
+    if (!metrics?.target_metrics) return [] as Array<{ id: string; success_rate: number; rps: number; avg_latency: number }>;
+    return Object.entries(metrics.target_metrics)
+      .map(([id, summary]) => ({
+        id,
+        success_rate: summary.success_rate,
+        rps: summary.rps,
+        avg_latency: summary.avg_latency,
+      }))
+      .sort((a, b) => b.success_rate - a.success_rate)
+      .slice(0, 4);
+  }, [metrics]);
+
+  if (loading) {
+    return (
+      <div className="flex min-h-[320px] flex-col items-center justify-center gap-4 rounded-3xl border border-white/10 bg-slate-900/70 p-10 text-white/70">
+        <Loader2 className="h-10 w-10 animate-spin text-blue-400" />
+        Syncing with orchestration layer…
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="rounded-3xl border border-rose-500/30 bg-rose-500/10 p-6 text-rose-100">
+        <div className="flex items-center gap-3">
+          <AlertTriangle className="h-5 w-5" />
+          <h3 className="text-lg font-semibold">Unable to load domain telemetry</h3>
+        </div>
+        <p className="mt-2 text-sm text-rose-100/80">{error}</p>
+      </div>
+    );
+  }
+
+  if (!metrics) {
+    return emptyState;
+  }
+
+  const derivedSuccessRate = metrics.success_rate > 1 ? metrics.success_rate : metrics.success_rate * 100;
+
+  const heroCards = [
+    {
+      title: 'Current RPS',
+      value: formatNumber(metrics.rps),
+      hint: 'Requests per second',
+      icon: Gauge,
+      tone: 'from-blue-500/20 to-blue-500/5 text-blue-200',
+    },
+    {
+      title: 'Success rate',
+      value: formatPercent(derivedSuccessRate),
+      hint: 'Across all domains',
+      icon: Shield,
+      tone: 'from-emerald-500/20 to-emerald-500/5 text-emerald-200',
+    },
+    {
+      title: 'Total requests',
+      value: formatNumber(metrics.total_requests),
+      hint: 'Since start of cycle',
+      icon: BarChart3,
+      tone: 'from-sky-500/20 to-sky-500/5 text-sky-200',
+    },
+    {
+      title: 'Active connections',
+      value: formatNumber(metrics.active_connections),
+      hint: `${formatNumber(metrics.threads)} threads engaged`,
+      icon: Activity,
+      tone: 'from-indigo-500/20 to-indigo-500/5 text-indigo-200',
+    },
+  ];
+
   return (
     <div className="space-y-10">
+      <header className="rounded-3xl border border-white/10 bg-gradient-to-br from-slate-900/80 via-slate-900/70 to-slate-900/40 p-8 shadow-xl shadow-black/40">
+        <div className="flex flex-col gap-6 md:flex-row md:items-center md:justify-between">
+          <div>
+            <div className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-3 py-1 text-xs uppercase tracking-[0.35em] text-slate-300">
+              <Wifi className="h-3.5 w-3.5 text-blue-300" />
+              Orchestrator Sync
+            </div>
+            <h1 className="mt-4 text-3xl font-semibold text-white">Domain telemetry control center</h1>
+            <p className="mt-2 max-w-2xl text-sm text-white/70">
+              Live status straight from the PHP orchestration layer: proxy pools, stealth fingerprints, and mitigation posture
+              for every connected domain.
+            </p>
+            <div className="mt-4 flex flex-wrap gap-3 text-xs uppercase tracking-widest text-white/60">
+              <span className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-3 py-1">
+                <Timer className="h-3.5 w-3.5 text-blue-300" /> Uptime {formatDuration(metrics.uptime_sec)}
+              </span>
+              <span className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-3 py-1">
+                <Target className="h-3.5 w-3.5 text-blue-300" /> {targetSummaries.length} target metrics
+              </span>
+            </div>
+          </div>
+          <div className="rounded-2xl border border-white/10 bg-white/5 px-5 py-4 text-right text-white/70">
+            <p className="text-xs uppercase tracking-[0.35em] text-white/50">Status</p>
+            <p className="mt-1 text-xl font-semibold text-white">{metrics.status || 'UNKNOWN'}</p>
+            {metrics.escalation && (
+              <p className="mt-2 text-xs text-white/60">
+                Escalation {metrics.escalation.status.toUpperCase()} · Threads {formatNumber(metrics.escalation.thread_count)}
+              </p>
+            )}
+          </div>
+        </div>
+      </header>
+
       <section className="grid gap-6 md:grid-cols-2 xl:grid-cols-4">
-        {statHighlights.map((card) => {
+        {heroCards.map((card) => {
           const Icon = card.icon;
           return (
             <div
-              key={card.label}
-              className={`relative overflow-hidden rounded-2xl border border-white/10 bg-slate-900/70 p-6 shadow-lg shadow-black/30 transition hover:-translate-y-1 hover:border-white/20`}
+              key={card.title}
+              className="relative overflow-hidden rounded-2xl border border-white/10 bg-slate-900/70 p-6 shadow-lg shadow-black/30 transition hover:-translate-y-1 hover:border-white/20"
             >
-              <div className={`absolute inset-0 bg-gradient-to-br ${card.tone} opacity-70`} aria-hidden />
+              <div className={`absolute inset-0 bg-gradient-to-br ${card.tone} opacity-60`} aria-hidden />
               <div className="relative">
-                <div className="flex items-center justify-between">
-                  <span className="text-sm font-semibold uppercase tracking-widest text-white/70">{card.label}</span>
-                  <span className="inline-flex h-10 w-10 items-center justify-center rounded-xl border border-white/10 bg-slate-900/80 text-white">
+                <div className="flex items-center justify-between text-white/70">
+                  <span className="text-xs uppercase tracking-[0.35em]">{card.title}</span>
+                  <span className="inline-flex h-10 w-10 items-center justify-center rounded-xl border border-white/10 bg-white/5 text-white">
                     <Icon className="h-5 w-5" />
                   </span>
                 </div>
-                <p className="mt-6 text-3xl font-semibold text-white">{card.value}</p>
-                <p className="mt-2 text-sm text-white/70">{card.delta}</p>
+                <p className="mt-5 text-3xl font-semibold text-white">{card.value}</p>
+                <p className="mt-2 text-xs text-white/70">{card.hint}</p>
               </div>
             </div>
           );
@@ -137,161 +195,138 @@ const Dashboard: React.FC = () => {
 
       <section className="grid gap-6 xl:grid-cols-[2fr_1fr]">
         <div className="rounded-3xl border border-white/10 bg-slate-900/70 p-6 shadow-lg shadow-black/30">
-          <div className="flex items-center justify-between">
+          <div className="flex flex-wrap items-center justify-between gap-3">
             <div>
-              <p className="text-xs uppercase tracking-[0.35em] text-blue-300/70">Live Telemetry</p>
-              <h3 className="mt-1 text-xl font-semibold text-white">Domain throughput &amp; mitigation</h3>
+              <p className="text-xs uppercase tracking-[0.35em] text-blue-300/80">Status codes</p>
+              <h2 className="mt-2 text-xl font-semibold text-white">Response distribution</h2>
             </div>
-            <span className="inline-flex items-center gap-2 rounded-full bg-emerald-500/10 px-3 py-1 text-xs font-medium text-emerald-300">
-              <span className="h-2 w-2 rounded-full bg-emerald-400" />
-              Stable
-            </span>
-          </div>
-          <div className="mt-8 h-72 w-full">
-            <ResponsiveContainer width="100%" height="100%">
-              <LineChart data={chartData}>
-                <XAxis dataKey="time" stroke="#64748b" tickLine={false} axisLine={{ stroke: '#334155' }} />
-                <YAxis stroke="#64748b" tickLine={false} axisLine={{ stroke: '#334155' }} />
-                <Tooltip
-                  contentStyle={{
-                    background: 'rgba(15, 23, 42, 0.95)',
-                    borderRadius: '0.75rem',
-                    border: '1px solid rgba(148, 163, 184, 0.2)',
-                    color: '#e2e8f0',
-                  }}
-                />
-                <Line type="monotone" dataKey="success" stroke="#38bdf8" strokeWidth={3} dot={false} />
-                <Line type="monotone" dataKey="error" stroke="#f97316" strokeWidth={2} strokeDasharray="4 6" dot={false} />
-              </LineChart>
-            </ResponsiveContainer>
-          </div>
-          <div className="mt-6 grid gap-4 md:grid-cols-3">
-            <div className="rounded-xl border border-blue-500/20 bg-blue-500/5 p-4 text-sm text-blue-100">
-              <p className="text-xs uppercase tracking-widest text-blue-300/80">Average Success</p>
-              <p className="mt-2 text-2xl font-semibold text-white">92.4%</p>
-              <p className="mt-1 text-xs text-blue-200/80">across 24 hour rolling window</p>
+            <div className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-3 py-1 text-xs text-white/70">
+              <ArrowUpRight className="h-4 w-4 text-blue-300" /> {formatPercent(derivedSuccessRate)} success
             </div>
-            <div className="rounded-xl border border-emerald-500/20 bg-emerald-500/5 p-4 text-sm text-emerald-100">
-              <p className="text-xs uppercase tracking-widest text-emerald-300/80">Proxy hygiene</p>
-              <p className="mt-2 text-2xl font-semibold text-white">98.1%</p>
-              <p className="mt-1 text-xs text-emerald-200/80">residential pools auto-rotated</p>
-            </div>
-            <div className="rounded-xl border border-orange-500/20 bg-orange-500/5 p-4 text-sm text-orange-100">
-              <p className="text-xs uppercase tracking-widest text-orange-300/80">Error windows</p>
-              <p className="mt-2 text-2xl font-semibold text-white">5.2m</p>
-              <p className="mt-1 text-xs text-orange-200/80">peak mitigation in the last cycle</p>
-            </div>
-          </div>
-        </div>
-
-        <div className="flex flex-col gap-6">
-          <div className="rounded-3xl border border-white/10 bg-slate-900/70 p-6 shadow-lg shadow-black/30">
-            <div className="flex items-center gap-3">
-              <LineChartIcon className="h-5 w-5 text-blue-300" />
-              <div>
-                <h4 className="text-sm font-semibold text-white">Adaptive Shield Score</h4>
-                <p className="text-xs text-white/60">Evaluated against current domain posture</p>
-              </div>
-            </div>
-            <ul className="mt-5 space-y-4">
-              {radarMetrics.map((metric) => (
-                <li key={metric.label} className="flex items-center justify-between gap-4">
-                  <span className="text-sm text-white/70">{metric.label}</span>
-                  <div className="flex items-center gap-3">
-                    <div className="h-1.5 w-28 rounded-full bg-white/10">
-                      <div
-                        className="h-full rounded-full bg-blue-400"
-                        style={{ width: `${metric.score}%` }}
-                      />
-                    </div>
-                    <span className="text-sm font-semibold text-white">{metric.score}%</span>
-                  </div>
-                </li>
-              ))}
-            </ul>
           </div>
 
-          <div className="rounded-3xl border border-white/10 bg-slate-900/70 p-6 shadow-lg shadow-black/30">
-            <div className="flex items-center gap-3">
-              <AlertTriangle className="h-5 w-5 text-orange-300" />
-              <div>
-                <h4 className="text-sm font-semibold text-white">Active Alerts</h4>
-                <p className="text-xs text-white/60">2 mitigation windows recommended</p>
-              </div>
-            </div>
-            <div className="mt-4 space-y-4 text-xs text-white/70">
-              <div className="rounded-xl border border-orange-400/20 bg-orange-500/10 p-3">
-                <p className="font-semibold text-orange-100">Origin saturation detected</p>
-                <p className="mt-1 text-orange-50/80">Shift 40% load to Oceania proxies for next cycle.</p>
-              </div>
-              <div className="rounded-xl border border-rose-400/20 bg-rose-500/10 p-3">
-                <p className="font-semibold text-rose-100">Captcha wall flagged</p>
-                <p className="mt-1 text-rose-50/80">Inject stealth kit alpha-19 for targeted domains.</p>
-              </div>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      <section className="grid gap-6 lg:grid-cols-[1.5fr_1fr]">
-        <div className="rounded-3xl border border-white/10 bg-slate-900/70 p-6 shadow-lg shadow-black/30">
-          <div className="flex items-center gap-3">
-            <Signal className="h-5 w-5 text-blue-300" />
-            <div>
-              <h4 className="text-sm font-semibold text-white">Sentinel resource pools</h4>
-              <p className="text-xs text-white/60">Runtime resources fuelling the domain</p>
-            </div>
-          </div>
-          <div className="mt-6 grid gap-4 md:grid-cols-3">
-            {sentinelCards.map((card) => {
-              const Icon = card.icon;
-              return (
-                <div
-                  key={card.title}
-                  className="rounded-2xl border border-white/10 bg-slate-950/60 p-4 transition hover:border-white/20"
-                >
-                  <div className="flex items-center justify-between">
-                    <span className="text-xs font-semibold uppercase tracking-widest text-white/60">{card.title}</span>
-                    <span className="rounded-lg border border-white/10 bg-white/5 p-2 text-white/80">
-                      <Icon className="h-4 w-4" />
-                    </span>
-                  </div>
-                  <p className="mt-5 text-2xl font-semibold text-white">{card.value}</p>
-                  <p className="text-xs text-white/60">{card.subtitle}</p>
-                  <span className="mt-4 inline-flex items-center gap-2 rounded-full bg-emerald-500/10 px-3 py-1 text-xs text-emerald-300">
-                    <span className="h-1.5 w-1.5 rounded-full bg-emerald-400" />
-                    {card.status}
-                  </span>
+          <div className="mt-6 space-y-4">
+            {statusCodes.length === 0 && (
+              <p className="text-sm text-white/60">No status code telemetry reported yet.</p>
+            )}
+            {statusCodes.map(({ code, count }) => (
+              <div key={code} className="space-y-2">
+                <div className="flex items-center justify-between text-xs uppercase tracking-widest text-white/50">
+                  <span>{code}</span>
+                  <span>{formatNumber(count)}</span>
                 </div>
-              );
-            })}
-          </div>
-        </div>
-
-        <div className="rounded-3xl border border-white/10 bg-slate-900/70 p-6 shadow-lg shadow-black/30">
-          <div className="flex items-center gap-3">
-            <Activity className="h-5 w-5 text-blue-300" />
-            <div>
-              <h4 className="text-sm font-semibold text-white">Operational Broadcast</h4>
-              <p className="text-xs text-white/60">Latest transmissions from command</p>
-            </div>
-          </div>
-          <div className="mt-6 space-y-5">
-            {activityFeed.map((activity) => (
-              <div key={activity.title} className="relative pl-6">
-                <span className="absolute left-0 top-1.5 flex h-2.5 w-2.5 items-center justify-center">
-                  <span className="h-2.5 w-2.5 rounded-full bg-blue-400" />
-                </span>
-                <div className="rounded-xl border border-white/10 bg-slate-950/60 p-4">
-                  <div className="flex items-center justify-between">
-                    <h5 className="text-sm font-semibold text-white">{activity.title}</h5>
-                    <span className="text-xs text-white/50">{activity.time}</span>
-                  </div>
-                  <p className="mt-2 text-sm text-white/70">{activity.description}</p>
+                <div className="h-2 rounded-full bg-white/5">
+                  {(() => {
+                    const ratio =
+                      metrics.total_requests > 0 ? Math.min(100, (count / metrics.total_requests) * 100) : 0;
+                    return (
+                  <div
+                    className="h-2 rounded-full bg-gradient-to-r from-blue-500 via-indigo-500 to-purple-500"
+                        style={{ width: `${ratio}%` }}
+                      />
+                    );
+                  })()}
                 </div>
               </div>
             ))}
           </div>
+        </div>
+
+        <div className="grid gap-6">
+          <div className="rounded-3xl border border-white/10 bg-slate-900/70 p-6 shadow-lg shadow-black/30">
+            <div className="flex items-center gap-3">
+              <Globe2 className="h-5 w-5 text-blue-300" />
+              <div>
+                <h3 className="text-sm font-semibold text-white">Proxy &amp; stealth posture</h3>
+                <p className="text-xs text-white/60">Live proxy pool rotation and stealth fingerprinting</p>
+              </div>
+            </div>
+            <div className="mt-5 grid gap-3 text-sm text-white/70">
+              <div className="flex items-center justify-between">
+                <span>Active proxies</span>
+                <span className="text-white">{formatNumber(metrics.proxy_stats.active_proxies)}</span>
+              </div>
+              <div className="flex items-center justify-between">
+                <span>Rotation count</span>
+                <span className="text-white">{formatNumber(metrics.proxy_stats.rotation_count)}</span>
+              </div>
+              {metrics.stealth_stats && (
+                <div className="flex items-center justify-between">
+                  <span>Stealth sessions</span>
+                  <span className="text-white">{formatNumber(metrics.stealth_stats.active_sessions)}</span>
+                </div>
+              )}
+              {metrics.fingerprint_stats?.current_user_agent && (
+                <div className="flex items-center justify-between">
+                  <span>User agent</span>
+                  <span className="text-white/80">{metrics.fingerprint_stats.current_user_agent}</span>
+                </div>
+              )}
+            </div>
+          </div>
+
+          {metrics.resistance && (
+            <div className="rounded-3xl border border-white/10 bg-gradient-to-br from-slate-900/80 via-slate-900/60 to-slate-900/30 p-6 shadow-lg shadow-black/30">
+              <div className="flex items-center gap-3">
+                <Shield className="h-5 w-5 text-emerald-300" />
+                <div>
+                  <h3 className="text-sm font-semibold text-white">Mitigation resistance</h3>
+                  <p className="text-xs text-white/60">Adaptive score against current anti-DDoS posture</p>
+                </div>
+              </div>
+              <div className="mt-5 space-y-3 text-sm text-white/70">
+                <div className="flex items-center justify-between">
+                  <span>Level</span>
+                  <span className="text-white uppercase">{metrics.resistance.level}</span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span>Score</span>
+                  <span className="text-white">{formatNumber(metrics.resistance.score)}</span>
+                </div>
+                {metrics.resistance.trend && (
+                  <div className="flex items-center justify-between">
+                    <span>Trend</span>
+                    <span className="text-white/80">{metrics.resistance.trend}</span>
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+        </div>
+      </section>
+
+      <section className="rounded-3xl border border-white/10 bg-slate-900/70 p-6 shadow-lg shadow-black/30">
+        <div className="flex items-center justify-between">
+          <div>
+            <p className="text-xs uppercase tracking-[0.35em] text-blue-300/80">Priority targets</p>
+            <h2 className="mt-2 text-xl font-semibold text-white">Top domain performance</h2>
+          </div>
+          <div className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-3 py-1 text-xs text-white/60">
+            <ArrowUpRight className="h-4 w-4 text-blue-300" /> Sorted by success rate
+          </div>
+        </div>
+        <div className="mt-6 grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+          {targetSummaries.length === 0 && (
+            <p className="text-sm text-white/60">No target metrics reported by the orchestrator.</p>
+          )}
+          {targetSummaries.map((target) => (
+            <div key={target.id} className="flex flex-col gap-3 rounded-2xl border border-white/10 bg-white/5 p-4 text-sm text-white/70">
+              <div className="flex items-center justify-between">
+                <span className="text-xs uppercase tracking-[0.35em] text-white/50">{target.id}</span>
+                <span className="inline-flex items-center gap-2 rounded-full border border-emerald-500/40 bg-emerald-500/10 px-3 py-1 text-xs font-semibold text-emerald-100">
+                  <ArrowUpRight className="h-3.5 w-3.5" /> {formatPercent(target.success_rate > 1 ? target.success_rate : target.success_rate * 100)}
+                </span>
+              </div>
+              <div className="flex items-center justify-between text-white">
+                <span>RPS</span>
+                <span>{formatNumber(target.rps)}</span>
+              </div>
+              <div className="flex items-center justify-between text-white">
+                <span>Latency</span>
+                <span>{formatLatency(target.avg_latency)}</span>
+              </div>
+            </div>
+          ))}
         </div>
       </section>
     </div>

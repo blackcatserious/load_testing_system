@@ -1,631 +1,393 @@
-import React, { useEffect, useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import {
   Activity,
+  CheckCircle2,
   Crosshair,
+  Loader2,
   PauseCircle,
   PlayCircle,
-  PlusCircle,
+  Radar,
   RefreshCw,
   ShieldCheck,
   Sparkles,
-  Upload,
+  Target,
 } from 'lucide-react';
+import { legacyControlApi } from '../api/api';
+import { useTestPlans } from '../api/hooks';
+import type { StartTestRequest, TestPlan } from '../api/types';
 
-interface Target {
-  id: string;
-  label: string;
-  url: string;
-  tags: string[];
-  status: 'active' | 'inactive' | 'testing';
-  last_tested: string;
-  success_rate: number;
-  attack_method?: string;
-  engine?: string;
-  proxy_profile?: string;
-  stealth_profile?: string;
-}
+const parseTargets = (value: string): string[] =>
+  value
+    .split(/\n|,/)
+    .map((entry) => entry.trim())
+    .filter(Boolean);
+
+const formatDate = (value?: string | null) => (value ? new Date(value).toLocaleString() : '—');
+
+const formatDuration = (seconds: number) => {
+  if (!Number.isFinite(seconds) || seconds <= 0) return '—';
+  const hours = Math.floor(seconds / 3600);
+  const minutes = Math.floor((seconds % 3600) / 60);
+  const parts = [];
+  if (hours > 0) parts.push(`${hours}h`);
+  if (minutes > 0 || parts.length === 0) parts.push(`${minutes}m`);
+  return parts.join(' ');
+};
+
+const TargetCard: React.FC<{
+  plan: TestPlan;
+  onStop: (plan: TestPlan) => Promise<void>;
+  stopping: boolean;
+}> = ({ plan, onStop, stopping }) => {
+  const targetList = useMemo(() => plan.targets.slice(0, 3), [plan.targets]);
+
+  return (
+    <div className="flex flex-col justify-between gap-4 rounded-2xl border border-white/10 bg-slate-900/70 p-6 text-white shadow-lg shadow-black/30">
+      <div className="space-y-4">
+        <div className="flex items-center justify-between">
+          <div>
+            <p className="text-xs uppercase tracking-[0.35em] text-white/50">{plan.id}</p>
+            <h3 className="mt-2 text-lg font-semibold text-white">{plan.attack_method ?? plan.engine}</h3>
+          </div>
+          <span
+            className={`inline-flex items-center gap-2 rounded-full px-3 py-1 text-xs font-semibold uppercase tracking-[0.2em] ${
+              plan.status === 'running'
+                ? 'border border-emerald-500/40 bg-emerald-500/10 text-emerald-200'
+                : 'border border-blue-500/40 bg-blue-500/10 text-blue-200'
+            }`}
+          >
+            <Activity className="h-3.5 w-3.5" />
+            {plan.status}
+          </span>
+        </div>
+
+        <div className="grid gap-3 text-sm text-white/70">
+          <div className="flex items-center justify-between">
+            <span>Targets</span>
+            <span className="text-white">{plan.targets.length}</span>
+          </div>
+          <div className="flex items-center justify-between">
+            <span>Threads</span>
+            <span className="text-white">{plan.threads.toLocaleString()}</span>
+          </div>
+          <div className="flex items-center justify-between">
+            <span>Duration</span>
+            <span className="text-white">{formatDuration(plan.duration)}</span>
+          </div>
+          <div className="flex items-center justify-between">
+            <span>Stealth</span>
+            <span className="text-white/80">{plan.stealth_profile ?? 'default'}</span>
+          </div>
+          <div className="flex items-center justify-between">
+            <span>Proxy</span>
+            <span className="text-white/80">{plan.proxy_profile ?? 'adaptive'}</span>
+          </div>
+          <div className="flex items-center justify-between">
+            <span>Started</span>
+            <span className="text-white/70">{formatDate(plan.started_at)}</span>
+          </div>
+        </div>
+
+        {targetList.length > 0 && (
+          <div className="rounded-xl border border-white/10 bg-white/5 p-3 text-xs text-white/70">
+            <p className="text-white/50">Lead targets</p>
+            <ul className="mt-2 space-y-1">
+              {targetList.map((target) => (
+                <li key={target} className="truncate" title={target}>
+                  {target}
+                </li>
+              ))}
+              {plan.targets.length > targetList.length && (
+                <li className="text-white/50">+{plan.targets.length - targetList.length} more</li>
+              )}
+            </ul>
+          </div>
+        )}
+      </div>
+
+      <button
+        type="button"
+        onClick={() => onStop(plan)}
+        className="inline-flex items-center justify-center gap-2 rounded-full border border-white/10 bg-white/5 px-4 py-2 text-sm font-semibold text-white transition hover:border-rose-400/50 hover:bg-rose-500/10"
+        disabled={stopping}
+      >
+        {stopping ? <Loader2 className="h-4 w-4 animate-spin" /> : <PauseCircle className="h-4 w-4" />}
+        Stop group
+      </button>
+    </div>
+  );
+};
 
 const Targets: React.FC = () => {
-  const [targets, setTargets] = useState<Target[]>([]);
-  const [newTarget, setNewTarget] = useState({
-    label: '',
-    url: '',
-    tags: '',
-    attack_method: 'post-spam',
-    engine: 'playwright',
-    proxy_profile: 'rotating',
-    stealth_profile: 'medium',
-  });
-  const [bulkTargets, setBulkTargets] = useState('');
-  const [isLoading, setIsLoading] = useState(true);
-  const [unlimitedMode, setUnlimitedMode] = useState(true);
-  const [showBulkImport, setShowBulkImport] = useState(false);
+  const { data: plans, loading, error, refetch } = useTestPlans(20);
+  const [targetInput, setTargetInput] = useState('');
+  const [profileId, setProfileId] = useState('ramp-up');
+  const [threads, setThreads] = useState(1000);
+  const [duration, setDuration] = useState(3600);
+  const [engine, setEngine] = useState('auto-bypass');
+  const [stealthProfile, setStealthProfile] = useState('high');
+  const [proxyProfile, setProxyProfile] = useState('rotating');
+  const [attackMethod, setAttackMethod] = useState('auto-bypass');
+  const [behaviorProfile, setBehaviorProfile] = useState('aggressive');
+  const [submitting, setSubmitting] = useState(false);
+  const [stoppingId, setStoppingId] = useState<string | null>(null);
+  const [feedback, setFeedback] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
 
-  useEffect(() => {
-    fetchTargets();
-  }, []);
+  const handleStart = async () => {
+    const targets = parseTargets(targetInput);
+    if (targets.length === 0) {
+      setFeedback({ type: 'error', message: 'Add at least one target URL.' });
+      return;
+    }
 
-  const fetchTargets = async () => {
+    const payload: StartTestRequest = {
+      profile_id: profileId,
+      threads,
+      duration,
+      engine,
+      behavior_profile_id: behaviorProfile,
+      targets,
+      attack_method: attackMethod,
+      stealth_profile: stealthProfile,
+      proxy_profile: proxyProfile,
+      user_agent_rotation: true,
+      ja3_rotation: true,
+      tls_rotation: true,
+      proxy_rotation: true,
+      spoof_headers: true,
+    };
+
     try {
-      const response = await fetch('/api/targets_endpoint.php?action=list');
-      const data = await response.json();
-      if (data.success && data.targets) {
-        setTargets(data.targets);
-      } else {
-        setTargets([
-          {
-            id: 'target_1',
-            label: 'Cloudflare-Protected-1',
-            url: 'https://proverj.com/dr-shihirman/',
-            tags: ['cloudflare', 'nginx'],
-            status: 'active',
-            last_tested: '2025-08-06T18:14:00Z',
-            success_rate: 95.8,
-            attack_method: 'bypassv2',
-            engine: 'playwright',
-            proxy_profile: 'rotating',
-            stealth_profile: 'high',
-          },
-          {
-            id: 'target_2',
-            label: 'DDoS-Guard-Protected',
-            url: 'https://life.ru/p/1643820',
-            tags: ['ddos-guard', 'cdn'],
-            status: 'active',
-            last_tested: '2025-08-06T18:10:00Z',
-            success_rate: 87.2,
-            attack_method: 'auto-bypass',
-            engine: 'headless',
-            proxy_profile: 'residential',
-            stealth_profile: 'extreme',
-          },
-          {
-            id: 'target_3',
-            label: 'API-Endpoint',
-            url: 'https://httpbin.org/get',
-            tags: ['api', 'test'],
-            status: 'testing',
-            last_tested: '2025-08-06T17:55:00Z',
-            success_rate: 99.9,
-            attack_method: 'http-spammer',
-            engine: 'fetch',
-            proxy_profile: 'datacenter',
-            stealth_profile: 'low',
-          },
-        ]);
-      }
-      setIsLoading(false);
-    } catch (error) {
-      console.error('Failed to fetch targets:', error);
-      setIsLoading(false);
+      setSubmitting(true);
+      await legacyControlApi.start(payload);
+      setFeedback({ type: 'success', message: 'Launch sequence transmitted to orchestrator.' });
+      setTargetInput('');
+      await refetch();
+    } catch (err) {
+      setFeedback({ type: 'error', message: err instanceof Error ? err.message : 'Failed to start test.' });
+    } finally {
+      setSubmitting(false);
     }
   };
 
-  const handleStartAttack = async (groupId: string) => {
+  const handleStop = async (plan: TestPlan) => {
     try {
-      const response = await fetch('/api/start_endpoint.php', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          action: 'start',
-          group_id: groupId,
-          profile_id: 'ramp-up',
-          threads: unlimitedMode ? 100000 : 500,
-          duration: unlimitedMode ? 2592000 : 3600,
-          engine: 'auto-bypass',
-          behavior_profile_id: 'high',
-        }),
-      });
-
-      if (response.ok) {
-        alert('Attack launched successfully!');
-        fetchTargets();
-      }
-    } catch (error) {
-      console.error('Failed to start attack:', error);
-    }
-  };
-
-  const handleStopAttack = async (groupId: string) => {
-    try {
-      const response = await fetch('/api/stop_endpoint.php', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          action: 'stop',
-          group_id: groupId,
-        }),
-      });
-
-      if (response.ok) {
-        alert('Attack stopped successfully!');
-        fetchTargets();
-      }
-    } catch (error) {
-      console.error('Failed to stop attack:', error);
-    }
-  };
-
-  const handleAddTarget = async () => {
-    try {
-      const target = {
-        label: newTarget.label,
-        url: newTarget.url,
-        tags: newTarget.tags.split(',').map((tag) => tag.trim()).filter(Boolean),
-        attack_method: newTarget.attack_method,
-        engine: newTarget.engine,
-        proxy_profile: newTarget.proxy_profile,
-        stealth_profile: newTarget.stealth_profile,
-      };
-
-      const response = await fetch('/api/targets_endpoint.php', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          action: 'add',
-          target,
-        }),
-      });
-
-      if (response.ok) {
-        setNewTarget({
-          label: '',
-          url: '',
-          tags: '',
-          attack_method: 'post-spam',
-          engine: 'playwright',
-          proxy_profile: 'rotating',
-          stealth_profile: 'medium',
-        });
-        fetchTargets();
-      }
-    } catch (error) {
-      console.error('Failed to add target:', error);
-    }
-  };
-
-  const handleBulkImport = async () => {
-    try {
-      const urls = bulkTargets
-        .split('\n')
-        .map((line) => line.trim())
-        .filter((line) => line.length > 0);
-
-      const targetsToImport = urls.map((url) => ({
-        label: url.replace(/^https?:\/\//, '').split('/')[0],
-        url,
-        tags: ['imported', 'bulk'],
-        attack_method: 'auto-bypass',
-        engine: 'playwright',
-        proxy_profile: 'rotating',
-        stealth_profile: 'high',
-      }));
-
-      const response = await fetch('/api/targets_endpoint.php', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          action: 'import',
-          targets: targetsToImport,
-        }),
-      });
-
-      if (response.ok) {
-        setBulkTargets('');
-        setShowBulkImport(false);
-        fetchTargets();
-        alert(`Successfully imported ${targetsToImport.length} targets`);
-      }
-    } catch (error) {
-      console.error('Failed to bulk import targets:', error);
-    }
-  };
-
-  const handleStartAllAttacks = async () => {
-    try {
-      const response = await fetch('/api/group_runs_endpoint.php', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          action: 'start_group',
-          targets: targets.map((t) => t.url),
-          profile_id: 'ramp-up',
-          threads: unlimitedMode ? 100000 : 500,
-          duration: unlimitedMode ? 2592000 : 3600,
-          engine: 'auto-bypass',
-          behavior_profile_id: 'high',
-        }),
-      });
-
-      if (response.ok) {
-        const data = await response.json();
-        alert(`Battle attack launched on all targets! Group ID: ${data.group_id}`);
-      }
-    } catch (error) {
-      console.error('Failed to start group attack:', error);
-    }
-  };
-
-  const handleStopAllAttacks = async () => {
-    try {
-      const response = await fetch('/api/group_runs_endpoint.php', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          action: 'stop_all',
-        }),
-      });
-
-      if (response.ok) {
-        alert('All attacks stopped successfully!');
-        fetchTargets();
-      }
-    } catch (error) {
-      console.error('Failed to stop all attacks:', error);
-    }
-  };
-
-  const getStatusBadge = (status: string) => {
-    switch (status) {
-      case 'active':
-        return 'bg-emerald-500/10 text-emerald-300 border border-emerald-500/30';
-      case 'inactive':
-        return 'bg-slate-500/10 text-slate-300 border border-slate-500/30';
-      case 'testing':
-        return 'bg-amber-500/10 text-amber-300 border border-amber-500/30';
-      default:
-        return 'bg-slate-500/10 text-slate-300 border border-slate-500/30';
+      setStoppingId(plan.id);
+      await legacyControlApi.stop({ group_id: plan.id });
+      setFeedback({ type: 'success', message: `Stop command sent for ${plan.id}.` });
+      await refetch();
+    } catch (err) {
+      setFeedback({ type: 'error', message: err instanceof Error ? err.message : 'Failed to stop plan.' });
+    } finally {
+      setStoppingId(null);
     }
   };
 
   return (
     <div className="space-y-10 text-slate-100">
-      <header className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
-        <div>
-          <div className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-3 py-1 text-xs uppercase tracking-[0.35em] text-slate-300">
-            <Crosshair className="h-3.5 w-3.5 text-blue-300" />
-            Target Operations
+      <header className="rounded-3xl border border-white/10 bg-slate-900/70 p-8 shadow-xl shadow-black/40">
+        <div className="flex flex-col gap-6 lg:flex-row lg:items-center lg:justify-between">
+          <div>
+            <div className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-3 py-1 text-xs uppercase tracking-[0.35em] text-slate-300">
+              <Target className="h-3.5 w-3.5 text-blue-300" />
+              Domain Targets
+            </div>
+            <h1 className="mt-4 text-3xl font-semibold text-white">Active orchestration groups</h1>
+            <p className="mt-2 max-w-2xl text-sm text-white/70">
+              Review live target groups sourced from the PHP orchestration layer and launch new stress tests with proxy and stealth
+              presets aligned to your domain strategy.
+            </p>
           </div>
-          <h1 className="mt-4 text-3xl font-semibold text-white">Domain assault orchestration</h1>
-          <p className="mt-2 max-w-2xl text-sm text-white/70">
-            Coordinate and supervise every active domain from a single command board. Optimise proxy mixes, stealth
-            profiles, and runtime escalation with a single action.
-          </p>
-        </div>
-        <div className="flex items-center gap-3">
-          <button
-            onClick={fetchTargets}
-            className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-4 py-2 text-sm font-medium text-white transition hover:border-white/30"
-          >
-            <RefreshCw className="h-4 w-4" />
-            Refresh
-          </button>
-          <button
-            onClick={() => setShowBulkImport((prev) => !prev)}
-            className="inline-flex items-center gap-2 rounded-full bg-blue-500/90 px-4 py-2 text-sm font-semibold text-white shadow-lg shadow-blue-500/25 transition hover:bg-blue-500"
-          >
-            <Upload className="h-4 w-4" />
-            {showBulkImport ? 'Cancel Bulk Import' : 'Bulk Import'}
-          </button>
+          <div className="rounded-2xl border border-white/10 bg-white/5 px-5 py-4 text-right text-white/70">
+            <p className="text-xs uppercase tracking-[0.35em] text-white/50">Tracked plans</p>
+            <p className="mt-1 text-2xl font-semibold text-white">{plans.length}</p>
+            <p className="mt-2 text-xs text-white/60">Pulled from /api/test-plans</p>
+          </div>
         </div>
       </header>
 
-      <section className="rounded-3xl border border-white/10 bg-slate-900/70 p-6 shadow-lg shadow-black/30">
-        <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
-          <div>
-            <p className="text-xs uppercase tracking-[0.35em] text-blue-300/70">Battle mode</p>
-            <h2 className="mt-2 text-2xl font-semibold text-white">Unlimited domain assault bands</h2>
-            <p className="mt-2 text-sm text-white/70">
-              Deploy thousands of threads across your entire domain roster with orchestrated escalation and automated
-              mitigation countermeasures.
-            </p>
-          </div>
-          <div className="flex items-center gap-3">
-            <span
-              className={`inline-flex items-center gap-2 rounded-full px-4 py-2 text-sm font-semibold ${
-                unlimitedMode
-                  ? 'bg-rose-500/10 text-rose-200 border border-rose-500/40'
-                  : 'bg-blue-500/10 text-blue-200 border border-blue-500/40'
-              }`}
-            >
-              <Sparkles className="h-4 w-4" />
-              {unlimitedMode ? '⚡ Unlimited Mode' : 'Standard Mode'}
-            </span>
-            <button
-              onClick={() => setUnlimitedMode((value) => !value)}
-              className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-4 py-2 text-sm font-medium text-white transition hover:border-white/30"
-            >
-              Toggle Mode
-            </button>
-          </div>
+      {feedback && (
+        <div
+          className={`rounded-2xl border px-4 py-3 text-sm ${
+            feedback.type === 'success'
+              ? 'border-emerald-500/40 bg-emerald-500/10 text-emerald-100'
+              : 'border-rose-500/40 bg-rose-500/10 text-rose-100'
+          }`}
+        >
+          {feedback.message}
         </div>
-        <div className="mt-6 grid gap-4 md:grid-cols-2">
-          <button
-            onClick={handleStartAllAttacks}
-            className="group flex items-center justify-between rounded-2xl border border-emerald-500/30 bg-emerald-500/10 px-5 py-4 text-left text-emerald-100 transition hover:border-emerald-400/60 hover:bg-emerald-500/15"
-          >
-            <div>
-              <p className="text-sm font-semibold uppercase tracking-widest">Launch all targets</p>
-              <p className="mt-1 text-xs text-emerald-100/80">Auto-balances proxies &amp; stealth kits per domain</p>
-            </div>
-            <PlayCircle className="h-8 w-8" />
-          </button>
-          <button
-            onClick={handleStopAllAttacks}
-            className="group flex items-center justify-between rounded-2xl border border-rose-500/30 bg-rose-500/10 px-5 py-4 text-left text-rose-100 transition hover:border-rose-400/60 hover:bg-rose-500/15"
-          >
-            <div>
-              <p className="text-sm font-semibold uppercase tracking-widest">Cease all assaults</p>
-              <p className="mt-1 text-xs text-rose-100/80">Gracefully winds down sessions and proxy leases</p>
-            </div>
-            <PauseCircle className="h-8 w-8" />
-          </button>
-        </div>
-        <div className="mt-6 grid gap-4 md:grid-cols-3 text-xs text-white/70">
-          <div className="rounded-2xl border border-blue-500/30 bg-blue-500/5 p-4">
-            <p className="font-semibold text-blue-100">Proxy inventory</p>
-            <p className="mt-1 text-blue-100/80">10M+ rotating &amp; residential endpoints with hygiene scoring.</p>
-          </div>
-          <div className="rounded-2xl border border-emerald-500/30 bg-emerald-500/5 p-4">
-            <p className="font-semibold text-emerald-100">Stealth kits</p>
-            <p className="mt-1 text-emerald-100/80">Fingerprint cloaking with TLS drift and device mimicry.</p>
-          </div>
-          <div className="rounded-2xl border border-indigo-500/30 bg-indigo-500/5 p-4">
-            <p className="font-semibold text-indigo-100">Escalation playbooks</p>
-            <p className="mt-1 text-indigo-100/80">HTTP/2 flood, Slowloris, TLS abuse &amp; behavioural swaps.</p>
-          </div>
-        </div>
-      </section>
-
-      {showBulkImport && (
-        <section className="rounded-3xl border border-blue-500/30 bg-blue-500/10 p-6 text-blue-50 shadow-lg shadow-blue-500/20">
-          <div className="flex items-start justify-between gap-4">
-            <div>
-              <h2 className="text-lg font-semibold">Bulk import targets</h2>
-              <p className="mt-1 text-sm text-blue-100/80">Paste one URL per line. Each will be provisioned with auto-bypass.</p>
-            </div>
-            <button
-              onClick={() => setShowBulkImport(false)}
-              className="rounded-full border border-white/20 px-3 py-1 text-xs uppercase tracking-widest text-blue-100/80 hover:border-white/40"
-            >
-              Close
-            </button>
-          </div>
-          <textarea
-            value={bulkTargets}
-            onChange={(e) => setBulkTargets(e.target.value)}
-            className="mt-4 w-full rounded-2xl border border-white/20 bg-slate-950/60 p-4 text-sm text-blue-50 placeholder:text-blue-100/40 focus:border-white/40 focus:outline-none"
-            placeholder={`https://example.com\nhttps://another-domain.net\nhttps://api.target.io`}
-            rows={6}
-          />
-          <div className="mt-4 flex justify-end">
-            <button
-              onClick={handleBulkImport}
-              className="inline-flex items-center gap-2 rounded-full bg-white/15 px-4 py-2 text-sm font-semibold text-white transition hover:bg-white/25"
-            >
-              <Upload className="h-4 w-4" />
-              Import targets
-            </button>
-          </div>
-        </section>
       )}
 
-      <section className="rounded-3xl border border-white/10 bg-slate-900/70 p-6 shadow-lg shadow-black/30">
-        <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
-          <div>
-            <h2 className="text-2xl font-semibold text-white">Target roster</h2>
-            <p className="text-sm text-white/70">Monitor live status, proxy blends, and stealth kits per domain.</p>
+      <section className="grid gap-6 lg:grid-cols-[2fr_1fr]">
+        <div className="space-y-6">
+          <div className="flex items-center justify-between">
+            <h2 className="text-xl font-semibold text-white">Orchestrated target groups</h2>
+            <button
+              type="button"
+              onClick={() => refetch()}
+              className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-3 py-1 text-xs text-white/70 transition hover:border-white/30 hover:text-white"
+            >
+              <RefreshCw className="h-3.5 w-3.5" /> Refresh
+            </button>
           </div>
-          <div className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-3 py-1 text-xs uppercase tracking-widest text-white/70">
-            <ShieldCheck className="h-3.5 w-3.5 text-emerald-300" />
-            {targets.length} targets
-          </div>
-        </div>
 
-        <div className="mt-6 grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-          {isLoading ? (
-            <div className="col-span-full flex flex-col items-center justify-center gap-3 py-12 text-white/60">
-              <span className="inline-block h-10 w-10 animate-spin rounded-full border-4 border-white/10 border-t-blue-400" />
-              Loading targets...
+          {loading ? (
+            <div className="flex min-h-[220px] items-center justify-center rounded-3xl border border-white/10 bg-slate-900/70 text-white/60">
+              <Loader2 className="mr-3 h-5 w-5 animate-spin" /> Fetching plans…
             </div>
-          ) : targets.length === 0 ? (
-            <div className="col-span-full rounded-2xl border border-white/10 bg-slate-950/60 p-8 text-center text-white/60">
-              <Activity className="mx-auto h-10 w-10 text-white/40" />
-              <p className="mt-3 text-sm">No targets available. Add a domain to begin orchestration.</p>
+          ) : error ? (
+            <div className="rounded-3xl border border-rose-500/30 bg-rose-500/10 p-6 text-rose-100">
+              Unable to fetch orchestrator plans: {error}
+            </div>
+          ) : plans.length === 0 ? (
+            <div className="flex min-h-[220px] flex-col items-center justify-center gap-4 rounded-3xl border border-white/10 bg-slate-900/70 text-white/60">
+              <Sparkles className="h-10 w-10 text-white/40" />
+              No groups registered yet.
             </div>
           ) : (
-            targets.map((target) => (
-              <div key={target.id} className="flex h-full flex-col gap-5 rounded-2xl border border-white/10 bg-slate-950/60 p-5 transition hover:border-white/20">
-                <div className="flex items-start justify-between gap-3">
-                  <div>
-                    <p className="text-sm font-semibold text-white">{target.label}</p>
-                    <a
-                      href={target.url}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="text-xs text-blue-300 hover:text-blue-200"
-                    >
-                      {target.url}
-                    </a>
-                  </div>
-                  <span className={`inline-flex items-center gap-2 rounded-full px-3 py-1 text-xs font-medium ${getStatusBadge(target.status)}`}>
-                    <span className="h-1.5 w-1.5 rounded-full bg-current" />
-                    {target.status.toUpperCase()}
-                  </span>
-                </div>
-
-                <div className="flex flex-wrap gap-2 text-xs">
-                  {target.tags.map((tag) => (
-                    <span key={tag} className="rounded-full border border-blue-500/30 bg-blue-500/10 px-3 py-1 text-blue-100">
-                      {tag}
-                    </span>
-                  ))}
-                </div>
-
-                <div className="grid gap-3 text-xs text-white/70">
-                  <div className="flex items-center justify-between">
-                    <span>Attack method</span>
-                    <span className="font-semibold text-white/80">{target.attack_method}</span>
-                  </div>
-                  <div className="flex items-center justify-between">
-                    <span>Engine</span>
-                    <span className="font-semibold text-white/80">{target.engine}</span>
-                  </div>
-                  <div className="flex items-center justify-between">
-                    <span>Proxy profile</span>
-                    <span className="font-semibold text-white/80">{target.proxy_profile}</span>
-                  </div>
-                  <div className="flex items-center justify-between">
-                    <span>Stealth profile</span>
-                    <span className="font-semibold text-white/80">{target.stealth_profile}</span>
-                  </div>
-                </div>
-
-                <div>
-                  <p className="text-xs uppercase tracking-widest text-white/60">Success rate</p>
-                  <div className="mt-2 flex items-center gap-3">
-                    <div className="h-2 w-full rounded-full bg-white/10">
-                      <div
-                        className={`h-full rounded-full ${
-                          target.success_rate >= 90
-                            ? 'bg-emerald-400'
-                            : target.success_rate >= 70
-                            ? 'bg-amber-400'
-                            : 'bg-rose-400'
-                        }`}
-                        style={{ width: `${Math.min(target.success_rate, 100)}%` }}
-                      />
-                    </div>
-                    <span className="text-sm font-semibold text-white">{target.success_rate}%</span>
-                  </div>
-                  <p className="mt-2 text-xs text-white/50">Last tested {new Date(target.last_tested).toLocaleString()}</p>
-                </div>
-
-                <div className="mt-auto flex flex-wrap gap-3">
-                  <button
-                    onClick={() => handleStartAttack(target.id)}
-                    className="inline-flex flex-1 items-center justify-center gap-2 rounded-full border border-emerald-500/40 bg-emerald-500/10 px-4 py-2 text-sm font-semibold text-emerald-100 transition hover:border-emerald-400/60 hover:bg-emerald-500/15"
-                  >
-                    <PlayCircle className="h-4 w-4" />
-                    Launch
-                  </button>
-                  <button
-                    onClick={() => handleStopAttack(target.id)}
-                    className="inline-flex flex-1 items-center justify-center gap-2 rounded-full border border-rose-500/40 bg-rose-500/10 px-4 py-2 text-sm font-semibold text-rose-100 transition hover:border-rose-400/60 hover:bg-rose-500/15"
-                  >
-                    <PauseCircle className="h-4 w-4" />
-                    Cease
-                  </button>
-                </div>
-              </div>
-            ))
+            <div className="grid gap-5 md:grid-cols-2">
+              {plans.map((plan) => (
+                <TargetCard key={plan.id} plan={plan} onStop={handleStop} stopping={stoppingId === plan.id} />
+              ))}
+            </div>
           )}
         </div>
-      </section>
 
-      <section className="rounded-3xl border border-white/10 bg-slate-900/70 p-6 shadow-lg shadow-black/30">
-        <h2 className="text-lg font-semibold text-white">Add new target</h2>
-        <p className="mt-1 text-sm text-white/70">Provision a fresh domain with default proxy and stealth profiles.</p>
-        <div className="mt-6 grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-          <div className="flex flex-col gap-2">
-            <label className="text-xs uppercase tracking-widest text-white/60">Label</label>
-            <input
-              type="text"
-              value={newTarget.label}
-              onChange={(e) => setNewTarget({ ...newTarget, label: e.target.value })}
-              className="rounded-2xl border border-white/10 bg-slate-950/60 px-4 py-2 text-sm text-white placeholder:text-white/30 focus:border-white/30 focus:outline-none"
-              placeholder="Target label"
-            />
+        <aside className="flex flex-col gap-6">
+          <div className="rounded-3xl border border-white/10 bg-slate-900/70 p-6 shadow-lg shadow-black/30">
+            <div className="flex items-center gap-3">
+              <ShieldCheck className="h-5 w-5 text-blue-300" />
+              <div>
+                <h3 className="text-sm font-semibold text-white">Launch new group</h3>
+                <p className="text-xs text-white/60">Issue a start command directly to the orchestrator.</p>
+              </div>
+            </div>
+
+            <div className="mt-6 space-y-5 text-sm text-white/70">
+              <div>
+                <label className="text-xs uppercase tracking-[0.35em] text-white/40">Targets</label>
+                <textarea
+                  value={targetInput}
+                  onChange={(event) => setTargetInput(event.target.value)}
+                  rows={4}
+                  className="mt-2 w-full rounded-2xl border border-white/10 bg-slate-950/60 p-3 text-sm text-white shadow-inner shadow-black/40 focus:border-blue-500/50 focus:outline-none"
+                  placeholder="https://target-one.tld\nhttps://target-two.tld"
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="text-xs uppercase tracking-[0.35em] text-white/40">Threads</label>
+                  <input
+                    type="number"
+                    min={1}
+                    value={threads}
+                    onChange={(event) => setThreads(Number(event.target.value))}
+                    className="mt-2 w-full rounded-xl border border-white/10 bg-slate-950/60 p-3 text-sm text-white focus:border-blue-500/50 focus:outline-none"
+                  />
+                </div>
+                <div>
+                  <label className="text-xs uppercase tracking-[0.35em] text-white/40">Duration (s)</label>
+                  <input
+                    type="number"
+                    min={60}
+                    value={duration}
+                    onChange={(event) => setDuration(Number(event.target.value))}
+                    className="mt-2 w-full rounded-xl border border-white/10 bg-slate-950/60 p-3 text-sm text-white focus:border-blue-500/50 focus:outline-none"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="text-xs uppercase tracking-[0.35em] text-white/40">Profile</label>
+                  <input
+                    value={profileId}
+                    onChange={(event) => setProfileId(event.target.value)}
+                    className="mt-2 w-full rounded-xl border border-white/10 bg-slate-950/60 p-3 text-sm text-white focus:border-blue-500/50 focus:outline-none"
+                  />
+                </div>
+                <div>
+                  <label className="text-xs uppercase tracking-[0.35em] text-white/40">Behavior</label>
+                  <input
+                    value={behaviorProfile}
+                    onChange={(event) => setBehaviorProfile(event.target.value)}
+                    className="mt-2 w-full rounded-xl border border-white/10 bg-slate-950/60 p-3 text-sm text-white focus:border-blue-500/50 focus:outline-none"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="text-xs uppercase tracking-[0.35em] text-white/40">Engine</label>
+                  <input
+                    value={engine}
+                    onChange={(event) => setEngine(event.target.value)}
+                    className="mt-2 w-full rounded-xl border border-white/10 bg-slate-950/60 p-3 text-sm text-white focus:border-blue-500/50 focus:outline-none"
+                  />
+                </div>
+                <div>
+                  <label className="text-xs uppercase tracking-[0.35em] text-white/40">Attack</label>
+                  <input
+                    value={attackMethod}
+                    onChange={(event) => setAttackMethod(event.target.value)}
+                    className="mt-2 w-full rounded-xl border border-white/10 bg-slate-950/60 p-3 text-sm text-white focus:border-blue-500/50 focus:outline-none"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="text-xs uppercase tracking-[0.35em] text-white/40">Stealth</label>
+                  <input
+                    value={stealthProfile}
+                    onChange={(event) => setStealthProfile(event.target.value)}
+                    className="mt-2 w-full rounded-xl border border-white/10 bg-slate-950/60 p-3 text-sm text-white focus:border-blue-500/50 focus:outline-none"
+                  />
+                </div>
+                <div>
+                  <label className="text-xs uppercase tracking-[0.35em] text-white/40">Proxy</label>
+                  <input
+                    value={proxyProfile}
+                    onChange={(event) => setProxyProfile(event.target.value)}
+                    className="mt-2 w-full rounded-xl border border-white/10 bg-slate-950/60 p-3 text-sm text-white focus:border-blue-500/50 focus:outline-none"
+                  />
+                </div>
+              </div>
+
+              <button
+                type="button"
+                onClick={handleStart}
+                disabled={submitting}
+                className="mt-2 inline-flex w-full items-center justify-center gap-2 rounded-full border border-blue-500/40 bg-blue-500/20 px-4 py-3 text-sm font-semibold text-blue-100 transition hover:border-blue-400/60 hover:bg-blue-500/30 disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                {submitting ? <Loader2 className="h-4 w-4 animate-spin" /> : <PlayCircle className="h-4 w-4" />}
+                Launch run
+              </button>
+            </div>
           </div>
-          <div className="flex flex-col gap-2">
-            <label className="text-xs uppercase tracking-widest text-white/60">URL</label>
-            <input
-              type="text"
-              value={newTarget.url}
-              onChange={(e) => setNewTarget({ ...newTarget, url: e.target.value })}
-              className="rounded-2xl border border-white/10 bg-slate-950/60 px-4 py-2 text-sm text-white placeholder:text-white/30 focus:border-white/30 focus:outline-none"
-              placeholder="https://example.com"
-            />
+
+          <div className="rounded-3xl border border-white/10 bg-white/5 p-6 text-sm text-white/70">
+            <div className="flex items-center gap-3 text-white">
+              <Crosshair className="h-5 w-5 text-blue-300" />
+              <div>
+                <h3 className="text-sm font-semibold text-white">Operational notes</h3>
+                <p className="text-xs text-white/60">Highlights from recent orchestrations</p>
+              </div>
+            </div>
+            <ul className="mt-4 space-y-3">
+              <li className="flex items-center gap-2 text-xs text-white/60">
+                <Sparkles className="h-3.5 w-3.5 text-blue-300" /> Residential proxy pools synced hourly.
+              </li>
+              <li className="flex items-center gap-2 text-xs text-white/60">
+                <Radar className="h-3.5 w-3.5 text-blue-300" /> JA3 rotation enabled across stealth kits.
+              </li>
+              <li className="flex items-center gap-2 text-xs text-white/60">
+                <CheckCircle2 className="h-3.5 w-3.5 text-blue-300" /> Legacy PHP endpoints proxied via Express gateway.
+              </li>
+            </ul>
           </div>
-          <div className="flex flex-col gap-2">
-            <label className="text-xs uppercase tracking-widest text-white/60">Tags</label>
-            <input
-              type="text"
-              value={newTarget.tags}
-              onChange={(e) => setNewTarget({ ...newTarget, tags: e.target.value })}
-              className="rounded-2xl border border-white/10 bg-slate-950/60 px-4 py-2 text-sm text-white placeholder:text-white/30 focus:border-white/30 focus:outline-none"
-              placeholder="tag1, tag2"
-            />
-          </div>
-          <div className="flex flex-col gap-2">
-            <label className="text-xs uppercase tracking-widest text-white/60">Attack method</label>
-            <select
-              value={newTarget.attack_method}
-              onChange={(e) => setNewTarget({ ...newTarget, attack_method: e.target.value })}
-              className="rounded-2xl border border-white/10 bg-slate-950/60 px-4 py-2 text-sm text-white focus:border-white/30 focus:outline-none"
-            >
-              <option value="auto-bypass">Auto Bypass</option>
-              <option value="bypassv2">Bypass v2</option>
-              <option value="post-spam">POST Spam</option>
-              <option value="http-spammer">HTTP Spammer</option>
-              <option value="head-flood">HEAD Flood</option>
-              <option value="slowloris">Slowloris</option>
-              <option value="tls-flood">TLS Flood</option>
-              <option value="http2-flood">HTTP/2 Flood</option>
-              <option value="crawl-drown">Crawl &amp; Drown</option>
-            </select>
-          </div>
-          <div className="flex flex-col gap-2">
-            <label className="text-xs uppercase tracking-widest text-white/60">Engine</label>
-            <select
-              value={newTarget.engine}
-              onChange={(e) => setNewTarget({ ...newTarget, engine: e.target.value })}
-              className="rounded-2xl border border-white/10 bg-slate-950/60 px-4 py-2 text-sm text-white focus:border-white/30 focus:outline-none"
-            >
-              <option value="playwright">Playwright</option>
-              <option value="fetch">Fetch</option>
-              <option value="headless">Headless</option>
-              <option value="browser-mix">Browser Mix</option>
-              <option value="raw-socket">Raw Socket</option>
-            </select>
-          </div>
-          <div className="flex flex-col gap-2">
-            <label className="text-xs uppercase tracking-widest text-white/60">Proxy profile</label>
-            <select
-              value={newTarget.proxy_profile}
-              onChange={(e) => setNewTarget({ ...newTarget, proxy_profile: e.target.value })}
-              className="rounded-2xl border border-white/10 bg-slate-950/60 px-4 py-2 text-sm text-white focus:border-white/30 focus:outline-none"
-            >
-              <option value="rotating">Rotating</option>
-              <option value="residential">Residential</option>
-              <option value="datacenter">Datacenter</option>
-              <option value="mobile">Mobile</option>
-              <option value="mixed">Mixed</option>
-            </select>
-          </div>
-          <div className="flex flex-col gap-2">
-            <label className="text-xs uppercase tracking-widest text-white/60">Stealth profile</label>
-            <select
-              value={newTarget.stealth_profile}
-              onChange={(e) => setNewTarget({ ...newTarget, stealth_profile: e.target.value })}
-              className="rounded-2xl border border-white/10 bg-slate-950/60 px-4 py-2 text-sm text-white focus:border-white/30 focus:outline-none"
-            >
-              <option value="low">Low</option>
-              <option value="medium">Medium</option>
-              <option value="high">High</option>
-              <option value="extreme">Extreme</option>
-            </select>
-          </div>
-        </div>
-        <div className="mt-6 flex justify-end">
-          <button
-            onClick={handleAddTarget}
-            className="inline-flex items-center gap-2 rounded-full bg-blue-500/90 px-4 py-2 text-sm font-semibold text-white shadow-lg shadow-blue-500/25 transition hover:bg-blue-500"
-          >
-            <PlusCircle className="h-4 w-4" />
-            Add target
-          </button>
-        </div>
+        </aside>
       </section>
     </div>
   );
