@@ -137,11 +137,17 @@ describe('API integration', () => {
     expect(response.body).toHaveProperty('profiles');
   });
 
-  test('serves frontend index for root requests', async () => {
+  test('serves a landing experience for root requests', async () => {
     const response = await supertest(app).get('/');
     expect(response.status).toBe(200);
     expect(response.headers['content-type']).toMatch(/html/);
-    expect(response.text).toContain('<div id="root">');
+    const html = response.text;
+    expect(html.toLowerCase()).toContain('<!doctype html>');
+    if (html.includes('Domain Command Center')) {
+      expect(html).toContain('Live domain orchestration');
+    } else {
+      expect(html).toContain('<div id="root"');
+    }
   });
 
   test('returns a structured error for unknown API routes', async () => {

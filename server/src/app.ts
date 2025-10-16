@@ -18,15 +18,24 @@ export function createApp(client: OrchestratorClient = defaultOrchestratorClient
   app.use(express.urlencoded({ extended: true }));
 
   const shouldServeFrontend = (req: Request): boolean => {
-    const acceptHeader = req.headers.accept ?? '';
     if (req.method !== 'GET') {
       return false;
+    }
+
+    const acceptHeader = (req.headers.accept ?? '').toLowerCase();
+
+    if (!acceptHeader || acceptHeader === '*/*') {
+      return true;
     }
 
     const acceptsHtml = acceptHeader.includes('text/html');
     const acceptsJson = acceptHeader.includes('application/json');
 
-    return acceptsHtml && !acceptsJson;
+    if (acceptsHtml && !acceptsJson) {
+      return true;
+    }
+
+    return acceptsHtml && acceptHeader.indexOf('application/json') > acceptHeader.indexOf('text/html');
   };
 
   const ensureApiRequest = (req: Request, _res: Response, next: NextFunction) => {

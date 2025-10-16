@@ -2,6 +2,7 @@ import express from 'express';
 import { Router } from 'express';
 import fs from 'node:fs';
 import path from 'node:path';
+import { defaultLandingPageHtml } from '../views/defaultLandingPage.js';
 
 export interface FrontendStaticOptions {
   distPath?: string;
@@ -31,7 +32,22 @@ export function createFrontendStaticMiddleware(options: FrontendStaticOptions = 
 
   const router = Router();
 
+  const serveFallback = (req: express.Request, res: express.Response, next: express.NextFunction) => {
+    if (req.method !== 'GET') {
+      next();
+      return;
+    }
+
+    if (apiPrefix && req.path.startsWith(apiPrefix)) {
+      next();
+      return;
+    }
+
+    res.type('html').send(defaultLandingPageHtml);
+  };
+
   if (!distPath || !fs.existsSync(distPath) || !fs.statSync(distPath).isDirectory()) {
+    router.get('*', serveFallback);
     return router;
   }
 
@@ -55,7 +71,7 @@ export function createFrontendStaticMiddleware(options: FrontendStaticOptions = 
     }
 
     if (!indexFile || req.path.includes('.') || !fs.existsSync(indexFile)) {
-      next();
+      serveFallback(req, res, next);
       return;
     }
 
