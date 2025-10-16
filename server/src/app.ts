@@ -25,8 +25,13 @@ export function createApp(client: OrchestratorClient = defaultOrchestratorClient
 
     const acceptHeader = (req.headers.accept ?? '').toLowerCase();
 
-    if (!acceptHeader || acceptHeader === '*/*') {
-      return true;
+    if (!acceptHeader) {
+      const originalPath = req.originalUrl ?? req.url ?? req.path;
+      return originalPath === '/' || originalPath === '';
+    }
+
+    if (acceptHeader === '*/*') {
+      return false;
     }
 
     const acceptsHtml = acceptHeader.includes('text/html');
@@ -39,18 +44,27 @@ export function createApp(client: OrchestratorClient = defaultOrchestratorClient
     return acceptsHtml && acceptHeader.indexOf('application/json') > acceptHeader.indexOf('text/html');
   };
 
-  const ensureApiRequest = (req: Request, _res: Response, next: NextFunction) => {
-    if (shouldServeFrontend(req)) {
-      next('route');
-      return;
-    }
-
-    next();
-  };
-
   const mountRouter = (paths: string[], routerFactory: () => ExpressRouter) => {
     const router = routerFactory();
-    paths.forEach((path) => app.use(path, ensureApiRequest, router));
+    const invokeRouter = (req: Request, res: Response, next: NextFunction) => {
+      const candidate = router as unknown as { handle?: (req: Request, res: Response, next: NextFunction) => void };
+      if (typeof candidate.handle === 'function') {
+        candidate.handle(req, res, next);
+        return;
+      }
+
+      (router as unknown as (req: Request, res: Response, next: NextFunction) => void)(req, res, next);
+    };
+    paths.forEach((path) =>
+      app.use(path, (req: Request, res: Response, next: NextFunction) => {
+        if (shouldServeFrontend(req)) {
+          next();
+          return;
+        }
+
+        invokeRouter(req, res, next);
+      })
+    );
   };
 
   mountRouter(['/dashboard', '/api/dashboard'], () => createDashboardRouter(client));
