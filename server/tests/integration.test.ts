@@ -136,4 +136,19 @@ describe('API integration', () => {
     expect(response.body).toHaveProperty('success', true);
     expect(response.body).toHaveProperty('profiles');
   });
+
+  test('serves frontend index for root requests', async () => {
+    const response = await supertest(app).get('/');
+    expect(response.status).toBe(200);
+    expect(response.headers['content-type']).toMatch(/html/);
+    expect(response.text).toContain('<div id="root">');
+  });
+
+  test('returns a structured error for unknown API routes', async () => {
+    const response = await supertest(app).get('/api/unknown-endpoint');
+    expect(response.status).toBe(404);
+    expect(response.body.status).toBe('error');
+    expect(response.body.error).toMatchObject({ code: 'NOT_FOUND' });
+  });
+
 });

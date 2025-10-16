@@ -7,6 +7,7 @@ import { createTestPlansRouter } from './routes/testPlans.js';
 import { createReportsRouter } from './routes/reports.js';
 import { createLegacyRouter } from './routes/legacy.js';
 import { createLegacyProxyMiddleware } from './middleware/legacyProxy.js';
+import { createFrontendStaticMiddleware } from './middleware/frontendStatic.js';
 import { normalizeError } from './utils/errors.js';
 import type { ApiErrorResponse } from './types/dto.js';
 
@@ -16,9 +17,30 @@ export function createApp(client: OrchestratorClient = defaultOrchestratorClient
   app.use(express.json());
   app.use(express.urlencoded({ extended: true }));
 
+  const shouldServeFrontend = (req: Request): boolean => {
+    const acceptHeader = req.headers.accept ?? '';
+    if (req.method !== 'GET') {
+      return false;
+    }
+
+    const acceptsHtml = acceptHeader.includes('text/html');
+    const acceptsJson = acceptHeader.includes('application/json');
+
+    return acceptsHtml && !acceptsJson;
+  };
+
+  const ensureApiRequest = (req: Request, _res: Response, next: NextFunction) => {
+    if (shouldServeFrontend(req)) {
+      next('route');
+      return;
+    }
+
+    next();
+  };
+
   const mountRouter = (paths: string[], routerFactory: () => ExpressRouter) => {
     const router = routerFactory();
-    paths.forEach((path) => app.use(path, router));
+    paths.forEach((path) => app.use(path, ensureApiRequest, router));
   };
 
   mountRouter(['/dashboard', '/api/dashboard'], () => createDashboardRouter(client));
@@ -31,6 +53,23 @@ export function createApp(client: OrchestratorClient = defaultOrchestratorClient
   app.use('/api', legacyRouter);
 
   app.use(createLegacyProxyMiddleware(client.getBaseUrl()));
+
+  app.use('/api', (req, res, next) => {
+    if (req.path.endsWith('.php')) {
+      next();
+      return;
+    }
+
+    res.status(404).json({
+      status: 'error',
+      error: {
+        message: `No API route found for ${req.path}`,
+        code: 'NOT_FOUND',
+      },
+    });
+  });
+
+  app.use(createFrontendStaticMiddleware());
 
   app.use((err: unknown, _req: Request, res: Response, _next: NextFunction) => {
     const normalized = normalizeError(err);
