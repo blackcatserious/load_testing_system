@@ -9,7 +9,7 @@ export function createDashboardRouter(client: OrchestratorClient): Router {
   router.get('/', async (req, res, next) => {
     try {
       const includeAntiDetect = req.query.includeAntiDetect !== 'false';
-      const metrics = await getDashboardMetrics(includeAntiDetect, client);
+      const metrics = await getDashboardMetrics(client, includeAntiDetect);
       const response: ApiResponse<DashboardMetrics> = { status: 'ok', data: metrics };
       res.json(response);
     } catch (err) {
