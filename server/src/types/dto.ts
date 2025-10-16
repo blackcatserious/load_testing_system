@@ -126,6 +126,14 @@ export interface TestPlan {
   targets: string[];
 }
 
+export interface ReportRunInfo {
+  run_id?: string;
+  target_url?: string;
+  method?: string;
+  started_at?: string;
+  finished_at?: string;
+}
+
 export interface ReportSummary {
   filename: string;
   file_path: string;
@@ -134,6 +142,13 @@ export interface ReportSummary {
   type: string;
   run_id?: string;
   timestamp?: string;
+  run_info?: ReportRunInfo;
+  summary?: {
+    total_requests?: number;
+    success_rate?: number;
+    avg_response_time?: number;
+    duration?: number;
+  };
 }
 
 export interface ApiSuccessResponse<T> {

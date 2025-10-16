@@ -41,6 +41,19 @@ export interface RawReport {
   type: string;
   run_id?: string;
   timestamp?: string;
+  run_info?: {
+    run_id?: string;
+    target_url?: string;
+    method?: string;
+    started_at?: string;
+    finished_at?: string;
+  };
+  summary?: {
+    total_requests?: number;
+    success_rate?: number;
+    avg_response_time?: number;
+    duration?: number;
+  };
 }
 
 export interface RawGroup {

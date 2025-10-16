@@ -169,8 +169,25 @@ export const mapReport = (raw: RawReport): ReportSummary => ({
   size: coerceNumber(raw.size, 0),
   created_at: raw.created_at,
   type: raw.type,
-  run_id: raw.run_id,
-  timestamp: raw.timestamp,
+  run_id: raw.run_id ?? raw.run_info?.run_id,
+  timestamp: raw.timestamp ?? raw.created_at,
+  run_info: raw.run_info
+    ? {
+        run_id: raw.run_info.run_id ?? raw.run_id,
+        target_url: raw.run_info.target_url,
+        method: raw.run_info.method,
+        started_at: raw.run_info.started_at,
+        finished_at: raw.run_info.finished_at,
+      }
+    : undefined,
+  summary: raw.summary
+    ? {
+        total_requests: coerceNumber(raw.summary.total_requests, undefined),
+        success_rate: coerceNumber(raw.summary.success_rate, undefined),
+        avg_response_time: coerceNumber(raw.summary.avg_response_time, undefined),
+        duration: coerceNumber(raw.summary.duration, undefined),
+      }
+    : undefined,
 });
 
 const mapStealthStats = (raw: Record<string, unknown> | undefined): StealthStats | undefined => {

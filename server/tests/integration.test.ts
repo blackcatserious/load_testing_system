@@ -86,4 +86,44 @@ describe('API integration', () => {
     expect(response.body.status).toBe('error');
     expect(response.body.error.message).toMatch(/not found/i);
   });
+
+  test('GET /api/metrics_endpoint.php returns legacy metrics payload', async () => {
+    const response = await supertest(app).get('/api/metrics_endpoint.php');
+    expect(response.status).toBe(200);
+    expect(response.body.success).toBe(true);
+    expect(response.body.metrics).toMatchObject({
+      requests_per_second: expect.any(Number),
+      total_requests: expect.any(Number),
+    });
+  });
+
+  test('GET /api/runs_endpoint.php returns legacy runs payload', async () => {
+    const response = await supertest(app).get('/api/runs_endpoint.php').query({ limit: 3 });
+    expect(response.status).toBe(200);
+    expect(response.body.status).toBe('success');
+    expect(Array.isArray(response.body.data?.runs)).toBe(true);
+  });
+
+  test('GET /api/runs_endpoint.php handles missing run via legacy format', async () => {
+    const response = await supertest(app).get('/api/runs_endpoint.php').query({ run_id: 'unknown-run-id' });
+    expect(response.status).toBe(404);
+    expect(response.body.status).toBe('error');
+    expect(typeof response.body.message).toBe('string');
+  });
+
+  test('GET /api/group_runs_endpoint.php returns legacy plan payload', async () => {
+    const response = await supertest(app)
+      .get('/api/group_runs_endpoint.php')
+      .query({ action: 'list', limit: 5 });
+    expect(response.status).toBe(200);
+    expect(response.body.status).toBe('success');
+    expect(Array.isArray(response.body.data?.groups)).toBe(true);
+  });
+
+  test('GET /api/reports_endpoint.php returns legacy reports payload', async () => {
+    const response = await supertest(app).get('/api/reports_endpoint.php').query({ action: 'list' });
+    expect(response.status).toBe(200);
+    expect(response.body.status).toBe('success');
+    expect(Array.isArray(response.body.data?.reports)).toBe(true);
+  });
 });
