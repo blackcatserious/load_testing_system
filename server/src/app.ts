@@ -6,6 +6,7 @@ import { createTestRunsRouter } from './routes/testRuns.js';
 import { createTestPlansRouter } from './routes/testPlans.js';
 import { createReportsRouter } from './routes/reports.js';
 import { createLegacyRouter } from './routes/legacy.js';
+import { createControlRouter } from './routes/control.js';
 import { createLegacyProxyMiddleware } from './middleware/legacyProxy.js';
 import { createFrontendStaticMiddleware } from './middleware/frontendStatic.js';
 import { normalizeError } from './utils/errors.js';
@@ -56,6 +57,7 @@ export function createApp(client: OrchestratorClient = defaultOrchestratorClient
   mountRouter(['/test-runs', '/api/test-runs'], () => createTestRunsRouter(client));
   mountRouter(['/test-plans', '/api/test-plans'], () => createTestPlansRouter(client));
   mountRouter(['/reports', '/api/reports'], () => createReportsRouter(client));
+  mountRouter(['/control', '/api/control'], () => createControlRouter(client));
 
   const legacyRouter = createLegacyRouter(client);
   app.use('/', legacyRouter);

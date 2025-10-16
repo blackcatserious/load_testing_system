@@ -9,6 +9,7 @@ import type {
   StartTestRequest,
   StartTestResponse,
   StopTestRequest,
+  StopTestResponse,
 } from './types';
 
 const api = axios.create({
@@ -63,6 +64,13 @@ export const reportsApi = {
   list: (): Promise<ReportSummary[]> => unwrap(api.get<ApiResponse<ReportSummary[]>>('/reports')),
 };
 
+export const controlApi = {
+  start: (payload: StartTestRequest): Promise<StartTestResponse> =>
+    unwrap(api.post<ApiResponse<StartTestResponse>>('/control/start', payload)),
+  stop: (payload: StopTestRequest): Promise<StopTestResponse> =>
+    unwrap(api.post<ApiResponse<StopTestResponse>>('/control/stop', payload)),
+};
+
 export const legacyControlApi = {
   start: async (payload: StartTestRequest): Promise<StartTestResponse> => {
     const response = await api.post<ApiResponse<StartTestResponse>>('/start_endpoint.php', payload);
@@ -72,12 +80,13 @@ export const legacyControlApi = {
     }
     return body.data ?? { status: 'ok' };
   },
-  stop: async (payload: StopTestRequest): Promise<void> => {
-    const response = await api.post<ApiResponse<unknown>>('/stop_endpoint.php', payload);
+  stop: async (payload: StopTestRequest): Promise<StopTestResponse> => {
+    const response = await api.post<ApiResponse<StopTestResponse>>('/stop_endpoint.php', payload);
     const body = response.data;
     if (body.status === 'error') {
       throw new Error(body.error?.message || 'Failed to stop test');
     }
+    return body.data ?? { status: 'success', group_id: payload.group_id };
   },
   downloadReport: (filename: string) =>
     api.get(`/reports_endpoint.php?action=download&file=${encodeURIComponent(filename)}`, { responseType: 'blob' }),

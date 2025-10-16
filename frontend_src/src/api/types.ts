@@ -192,8 +192,21 @@ export interface StartTestResponse {
   status: string;
   group_id?: string;
   run_ids?: string[];
+  targets?: string[];
+  target_count?: number;
+  stealth_session_ids?: string[];
+  stealth_config?: Record<string, unknown>;
+  message?: string;
 }
 
 export interface StopTestRequest {
-  group_id: string;
+  group_id?: string;
+  run_id?: string;
+}
+
+export interface StopTestResponse {
+  status: string;
+  message?: string;
+  group_id?: string;
+  run_id?: string;
 }

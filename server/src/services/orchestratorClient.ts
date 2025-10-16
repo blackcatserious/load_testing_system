@@ -8,6 +8,12 @@ import type {
   RawReport,
   RawRun,
 } from '../types/orchestrator.js';
+import type {
+  StartTestRequest,
+  StartTestResponse,
+  StopTestRequest,
+  StopTestResponse,
+} from '../types/dto.js';
 
 interface RequestOptions extends AxiosRequestConfig {
   suppressStatusCheck?: boolean;
@@ -151,6 +157,38 @@ export class OrchestratorClient {
 
     const data = this.ensureSuccess(payload, 'fetchReports');
     return Array.isArray(data.reports) ? data.reports : [];
+  }
+
+  async startTest(payload: StartTestRequest): Promise<StartTestResponse> {
+    const response = await this.request<PhpApiResponse<StartTestResponse>>({
+      url: '/start_endpoint.php',
+      method: 'POST',
+      data: payload,
+    });
+
+    return this.ensureSuccess(response, 'startTest');
+  }
+
+  async stopTest(payload: StopTestRequest): Promise<StopTestResponse> {
+    const response = await this.request<PhpApiResponse<StopTestResponse>>({
+      url: '/stop_endpoint.php',
+      method: 'POST',
+      data: payload,
+    });
+
+    if (response && typeof response === 'object' && (response as PhpApiResponse<StopTestResponse>).status === 'success') {
+      const typed = response as PhpApiResponse<StopTestResponse> & StopTestResponse;
+      if (typed.data === undefined) {
+        return {
+          status: typed.status ?? 'success',
+          message: typed.message,
+          group_id: (typed as Record<string, unknown>).group_id as string | undefined,
+          run_id: (typed as Record<string, unknown>).run_id as string | undefined,
+        };
+      }
+    }
+
+    return this.ensureSuccess(response, 'stopTest');
   }
 }
 

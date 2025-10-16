@@ -12,9 +12,9 @@ import {
   Sparkles,
   Target,
 } from 'lucide-react';
-import { legacyControlApi } from '../api/api';
+import { controlApi, legacyControlApi } from '../api/api';
 import { useTestPlans } from '../api/hooks';
-import type { StartTestRequest, TestPlan } from '../api/types';
+import type { StartTestRequest, StartTestResponse, StopTestResponse, TestPlan } from '../api/types';
 
 const parseTargets = (value: string): string[] =>
   value
@@ -159,8 +159,37 @@ const Targets: React.FC = () => {
 
     try {
       setSubmitting(true);
-      await legacyControlApi.start(payload);
-      setFeedback({ type: 'success', message: 'Launch sequence transmitted to orchestrator.' });
+      let startResponse: StartTestResponse | null = null;
+      try {
+        startResponse = await controlApi.start(payload);
+      } catch (primaryError) {
+        try {
+          startResponse = await legacyControlApi.start(payload);
+        } catch (fallbackError) {
+          throw fallbackError instanceof Error ? fallbackError : new Error('Failed to start test.');
+        }
+      }
+
+      const startSummary = startResponse
+        ? [
+            startResponse.group_id ? `Group ${startResponse.group_id}` : null,
+            startResponse.run_ids?.length
+              ? `${startResponse.run_ids.length} run${startResponse.run_ids.length > 1 ? 's' : ''}`
+              : null,
+            startResponse.targets?.length
+              ? `${startResponse.targets.length} target${startResponse.targets.length > 1 ? 's' : ''}`
+              : null,
+          ]
+            .filter(Boolean)
+            .join(' • ')
+        : null;
+
+      setFeedback({
+        type: 'success',
+        message:
+          startResponse?.message ||
+          `Launch sequence transmitted to orchestrator${startSummary ? ` — ${startSummary}` : ''}`,
+      });
       setTargetInput('');
       await refetch();
     } catch (err) {
@@ -173,8 +202,22 @@ const Targets: React.FC = () => {
   const handleStop = async (plan: TestPlan) => {
     try {
       setStoppingId(plan.id);
-      await legacyControlApi.stop({ group_id: plan.id });
-      setFeedback({ type: 'success', message: `Stop command sent for ${plan.id}.` });
+      let stopResponse: StopTestResponse | null = null;
+      try {
+        stopResponse = await controlApi.stop({ group_id: plan.id });
+      } catch (primaryError) {
+        try {
+          stopResponse = await legacyControlApi.stop({ group_id: plan.id });
+        } catch (fallbackError) {
+          throw fallbackError instanceof Error ? fallbackError : new Error('Failed to stop plan.');
+        }
+      }
+      setFeedback({
+        type: 'success',
+        message:
+          stopResponse?.message ??
+          `Stop command sent for ${stopResponse?.group_id ?? stopResponse?.run_id ?? plan.id}.`,
+      });
       await refetch();
     } catch (err) {
       setFeedback({ type: 'error', message: err instanceof Error ? err.message : 'Failed to stop plan.' });

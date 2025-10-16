@@ -168,3 +168,44 @@ export interface ApiErrorResponse {
 }
 
 export type ApiResponse<T> = ApiSuccessResponse<T> | ApiErrorResponse;
+
+export interface StartTestRequest {
+  profile_id: string;
+  threads: number;
+  duration: number;
+  engine: string;
+  behavior_profile_id?: string;
+  targets?: string[];
+  target_url?: string;
+  stealth_profile?: string;
+  proxy_profile?: string;
+  attack_method?: string;
+  user_agent_rotation?: boolean;
+  ja3_rotation?: boolean;
+  tls_rotation?: boolean;
+  proxy_rotation?: boolean;
+  spoof_headers?: boolean;
+}
+
+export interface StartTestResponse {
+  group_id: string;
+  run_ids: string[];
+  targets: string[];
+  target_count: number;
+  stealth_session_ids?: string[];
+  stealth_config?: Record<string, unknown>;
+  status?: string;
+  message?: string;
+}
+
+export interface StopTestRequest {
+  group_id?: string;
+  run_id?: string;
+}
+
+export interface StopTestResponse {
+  status: string;
+  message?: string;
+  group_id?: string;
+  run_id?: string;
+}

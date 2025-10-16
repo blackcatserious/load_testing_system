@@ -127,6 +127,42 @@ describe('API integration', () => {
     expect(Array.isArray(response.body.data?.reports)).toBe(true);
   });
 
+  test('POST /control/start launches a new orchestration group and /control/stop halts it', async () => {
+    const startPayload = {
+      profile_id: 'orchestrator-e2e',
+      engine: 'auto-bypass',
+      threads: 25,
+      duration: 120,
+      behavior_profile_id: 'aggressive',
+      stealth_profile: 'high',
+      proxy_profile: 'rotating',
+      attack_method: 'auto-bypass',
+      targets: ['https://example.com/health-check'],
+      user_agent_rotation: true,
+      ja3_rotation: true,
+      tls_rotation: true,
+      proxy_rotation: true,
+      spoof_headers: true,
+    };
+
+    const startResponse = await supertest(app).post('/control/start').send(startPayload);
+    expect(startResponse.status).toBe(200);
+    expect(startResponse.body.status).toBe('ok');
+    expect(startResponse.body.data).toMatchObject({
+      group_id: expect.any(String),
+      run_ids: expect.any(Array),
+    });
+
+    const groupId = startResponse.body.data.group_id as string;
+    const stopResponse = await supertest(app).post('/control/stop').send({ group_id: groupId });
+    expect(stopResponse.status).toBe(200);
+    expect(stopResponse.body.status).toBe('ok');
+    expect(stopResponse.body.data).toMatchObject({
+      status: expect.stringMatching(/success/i),
+      group_id: groupId,
+    });
+  });
+
   test('unhandled PHP endpoints are proxied to the orchestrator', async () => {
     const response = await supertest(app)
       .get('/api/client_profile.php')
