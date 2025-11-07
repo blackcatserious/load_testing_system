@@ -19,29 +19,32 @@ export function createApp(client: OrchestratorClient = defaultOrchestratorClient
   app.use(express.urlencoded({ extended: true }));
 
   const shouldServeFrontend = (req: Request): boolean => {
-    if (req.method !== 'GET') {
+    if (req.method !== 'GET' && req.method !== 'HEAD') {
       return false;
     }
 
     const acceptHeader = (req.headers.accept ?? '').toLowerCase();
+    const userAgent = (req.headers['user-agent'] ?? '').toLowerCase();
+    const looksLikeBrowser = /mozilla|chrome|safari|firefox|edge/.test(userAgent);
+    const isAjax = req.xhr || req.get('x-requested-with') === 'XMLHttpRequest';
 
     if (!acceptHeader) {
-      const originalPath = req.originalUrl ?? req.url ?? req.path;
-      return originalPath === '/' || originalPath === '';
-    }
-
-    if (acceptHeader === '*/*') {
-      return false;
+      return looksLikeBrowser && !isAjax;
     }
 
     const acceptsHtml = acceptHeader.includes('text/html');
     const acceptsJson = acceptHeader.includes('application/json');
+    const acceptsAnything = acceptHeader.includes('*/*');
 
-    if (acceptsHtml && !acceptsJson) {
+    if (acceptsHtml) {
       return true;
     }
 
-    return acceptsHtml && acceptHeader.indexOf('application/json') > acceptHeader.indexOf('text/html');
+    if (acceptsAnything && !acceptsJson && looksLikeBrowser && !isAjax) {
+      return true;
+    }
+
+    return false;
   };
 
   const mountRouter = (paths: string[], routerFactory: () => ExpressRouter) => {

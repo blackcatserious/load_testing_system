@@ -59,6 +59,13 @@ describe('API integration', () => {
     });
   });
 
+  test('GET /dashboard with HTML accept header serves the frontend shell', async () => {
+    const response = await supertest(app).get('/dashboard').set('Accept', 'text/html');
+    expect(response.status).toBe(200);
+    expect(response.headers['content-type']).toMatch(/html/);
+    expect(response.text.toLowerCase()).toContain('<!doctype html>');
+  });
+
   test('GET /test-runs returns runs list', async () => {
     const response = await supertest(app).get('/test-runs');
     expect(response.status).toBe(200);
