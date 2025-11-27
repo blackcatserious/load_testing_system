@@ -1,21 +1,3 @@
-export interface ApiErrorInfo {
-  message: string;
-  code?: string;
-  details?: unknown;
-}
-
-export interface ApiSuccessResponse<T> {
-  status: 'ok';
-  data: T;
-}
-
-export interface ApiErrorResponse {
-  status: 'error';
-  error: ApiErrorInfo;
-}
-
-export type ApiResponse<T> = ApiSuccessResponse<T> | ApiErrorResponse;
-
 export interface ProxyStats {
   total_proxies: number;
   active_proxies: number;
@@ -169,8 +151,25 @@ export interface ReportSummary {
   };
 }
 
+export interface ApiSuccessResponse<T> {
+  status: 'ok';
+  data: T;
+}
+
+export interface ApiErrorInfo {
+  message: string;
+  code?: string;
+  details?: unknown;
+}
+
+export interface ApiErrorResponse {
+  status: 'error';
+  error: ApiErrorInfo;
+}
+
+export type ApiResponse<T> = ApiSuccessResponse<T> | ApiErrorResponse;
+
 export interface StartTestRequest {
-  group_id?: string;
   profile_id: string;
   threads: number;
   duration: number;
@@ -189,13 +188,13 @@ export interface StartTestRequest {
 }
 
 export interface StartTestResponse {
-  status: string;
-  group_id?: string;
-  run_ids?: string[];
-  targets?: string[];
-  target_count?: number;
+  group_id: string;
+  run_ids: string[];
+  targets: string[];
+  target_count: number;
   stealth_session_ids?: string[];
   stealth_config?: Record<string, unknown>;
+  status?: string;
   message?: string;
 }
 

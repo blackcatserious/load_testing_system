@@ -1,0 +1,203 @@
+import { spawn, type ChildProcess } from 'child_process';
+import path from 'node:path';
+import axios from 'axios';
+import supertest from 'supertest';
+import { createApp } from '../src/app.js';
+import { OrchestratorClient } from '../src/services/orchestratorClient.js';
+import type { Express } from 'express';
+
+describe('API integration', () => {
+  const phpPort = 8091;
+  let phpServer: ChildProcess | undefined;
+  let app: Express;
+
+  const waitForPhp = async () => {
+    const baseUrl = `http://127.0.0.1:${phpPort}`;
+    for (let attempt = 0; attempt < 20; attempt += 1) {
+      try {
+        await axios.get(`${baseUrl}/health_endpoint.php`, { timeout: 1000 });
+        return;
+      } catch (err) {
+        await new Promise((resolve) => setTimeout(resolve, 250));
+      }
+    }
+    throw new Error('PHP server failed to start');
+  };
+
+  beforeAll(async () => {
+    const projectRoot = path.resolve(process.cwd(), '..');
+
+    phpServer = spawn('php', ['-S', `127.0.0.1:${phpPort}`, '-t', 'api'], {
+      cwd: projectRoot,
+      stdio: 'ignore',
+    });
+
+    await waitForPhp();
+
+    const client = new OrchestratorClient({
+      baseUrl: `http://127.0.0.1:${phpPort}`,
+      timeoutMs: 10000,
+    });
+
+    app = createApp(client);
+  }, 30000);
+
+  afterAll(() => {
+    if (phpServer) {
+      phpServer.kill();
+      phpServer = undefined;
+    }
+  });
+
+  test('GET /dashboard returns live metrics', async () => {
+    const response = await supertest(app).get('/dashboard');
+    expect(response.status).toBe(200);
+    expect(response.body.status).toBe('ok');
+    expect(response.body.data).toMatchObject({
+      proxy_stats: expect.any(Object),
+      status_codes: expect.any(Object),
+    });
+  });
+
+  test('GET /dashboard with HTML accept header serves the frontend shell', async () => {
+    const response = await supertest(app).get('/dashboard').set('Accept', 'text/html');
+    expect(response.status).toBe(200);
+    expect(response.headers['content-type']).toMatch(/html/);
+    expect(response.text.toLowerCase()).toContain('<!doctype html>');
+  });
+
+  test('GET /test-runs returns runs list', async () => {
+    const response = await supertest(app).get('/test-runs');
+    expect(response.status).toBe(200);
+    expect(response.body.status).toBe('ok');
+    expect(Array.isArray(response.body.data)).toBe(true);
+  });
+
+  test('GET /test-plans returns plan list', async () => {
+    const response = await supertest(app).get('/test-plans');
+    expect(response.status).toBe(200);
+    expect(response.body.status).toBe('ok');
+    expect(Array.isArray(response.body.data)).toBe(true);
+  });
+
+  test('GET /reports returns reports list', async () => {
+    const response = await supertest(app).get('/reports');
+    expect(response.status).toBe(200);
+    expect(response.body.status).toBe('ok');
+    expect(Array.isArray(response.body.data)).toBe(true);
+  });
+
+  test('GET /test-runs/:id returns 404 for missing run', async () => {
+    const response = await supertest(app).get('/test-runs/unknown-run-id');
+    expect(response.status).toBe(404);
+    expect(response.body.status).toBe('error');
+    expect(response.body.error.message).toMatch(/not found/i);
+  });
+
+  test('GET /api/metrics_endpoint.php returns legacy metrics payload', async () => {
+    const response = await supertest(app).get('/api/metrics_endpoint.php');
+    expect(response.status).toBe(200);
+    expect(response.body.success).toBe(true);
+    expect(response.body.metrics).toMatchObject({
+      requests_per_second: expect.any(Number),
+      total_requests: expect.any(Number),
+    });
+  });
+
+  test('GET /api/runs_endpoint.php returns legacy runs payload', async () => {
+    const response = await supertest(app).get('/api/runs_endpoint.php').query({ limit: 3 });
+    expect(response.status).toBe(200);
+    expect(response.body.status).toBe('success');
+    expect(Array.isArray(response.body.data?.runs)).toBe(true);
+  });
+
+  test('GET /api/runs_endpoint.php handles missing run via legacy format', async () => {
+    const response = await supertest(app).get('/api/runs_endpoint.php').query({ run_id: 'unknown-run-id' });
+    expect(response.status).toBe(404);
+    expect(response.body.status).toBe('error');
+    expect(typeof response.body.message).toBe('string');
+  });
+
+  test('GET /api/group_runs_endpoint.php returns legacy plan payload', async () => {
+    const response = await supertest(app)
+      .get('/api/group_runs_endpoint.php')
+      .query({ action: 'list', limit: 5 });
+    expect(response.status).toBe(200);
+    expect(response.body.status).toBe('success');
+    expect(Array.isArray(response.body.data?.groups)).toBe(true);
+  });
+
+  test('GET /api/reports_endpoint.php returns legacy reports payload', async () => {
+    const response = await supertest(app).get('/api/reports_endpoint.php').query({ action: 'list' });
+    expect(response.status).toBe(200);
+    expect(response.body.status).toBe('success');
+    expect(Array.isArray(response.body.data?.reports)).toBe(true);
+  });
+
+  test('POST /control/start launches a new orchestration group and /control/stop halts it', async () => {
+    const startPayload = {
+      profile_id: 'orchestrator-e2e',
+      engine: 'auto-bypass',
+      threads: 25,
+      duration: 120,
+      behavior_profile_id: 'aggressive',
+      stealth_profile: 'high',
+      proxy_profile: 'rotating',
+      attack_method: 'auto-bypass',
+      targets: ['https://example.com/health-check'],
+      user_agent_rotation: true,
+      ja3_rotation: true,
+      tls_rotation: true,
+      proxy_rotation: true,
+      spoof_headers: true,
+    };
+
+    const startResponse = await supertest(app).post('/control/start').send(startPayload);
+    expect(startResponse.status).toBe(200);
+    expect(startResponse.body.status).toBe('ok');
+    expect(startResponse.body.data).toMatchObject({
+      group_id: expect.any(String),
+      run_ids: expect.any(Array),
+    });
+
+    const groupId = startResponse.body.data.group_id as string;
+    const stopResponse = await supertest(app).post('/control/stop').send({ group_id: groupId });
+    expect(stopResponse.status).toBe(200);
+    expect(stopResponse.body.status).toBe('ok');
+    expect(stopResponse.body.data).toMatchObject({
+      status: expect.stringMatching(/success/i),
+      group_id: groupId,
+    });
+  });
+
+  test('unhandled PHP endpoints are proxied to the orchestrator', async () => {
+    const response = await supertest(app)
+      .get('/api/client_profile.php')
+      .query({ action: 'list' });
+
+    expect(response.status).toBe(200);
+    expect(response.body).toHaveProperty('success', true);
+    expect(response.body).toHaveProperty('profiles');
+  });
+
+  test('serves a landing experience for root requests', async () => {
+    const response = await supertest(app).get('/');
+    expect(response.status).toBe(200);
+    expect(response.headers['content-type']).toMatch(/html/);
+    const html = response.text;
+    expect(html.toLowerCase()).toContain('<!doctype html>');
+    if (html.includes('Domain Command Center')) {
+      expect(html).toContain('Live domain orchestration');
+    } else {
+      expect(html).toContain('<div id="root"');
+    }
+  });
+
+  test('returns a structured error for unknown API routes', async () => {
+    const response = await supertest(app).get('/api/unknown-endpoint');
+    expect(response.status).toBe(404);
+    expect(response.body.status).toBe('error');
+    expect(response.body.error).toMatchObject({ code: 'NOT_FOUND' });
+  });
+
+});

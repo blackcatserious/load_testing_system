@@ -1,16 +1,15 @@
-import axios from 'axios';
+import axios, { type AxiosError, type AxiosResponse } from 'axios';
 import type {
   ApiResponse,
-  HealthStatus,
-  LiveMetrics,
-  Run,
-  RunDetails,
-  Report,
-  ClientProfile,
-  TLSProfile,
+  DashboardMetrics,
+  ReportSummary,
+  TestPlan,
+  TestRun,
+  TestRunDetails,
   StartTestRequest,
   StartTestResponse,
-  StopTestRequest
+  StopTestRequest,
+  StopTestResponse,
 } from './types';
 
 const api = axios.create({
@@ -21,225 +20,74 @@ const api = axios.create({
   },
 });
 
-api.interceptors.response.use(
-  (response) => response,
-  (error) => {
-    console.error('API Error:', error);
-    return Promise.reject(error);
+const unwrap = async <T>(promise: Promise<AxiosResponse<ApiResponse<T>>>): Promise<T> => {
+  try {
+    const response = await promise;
+    const payload = response.data;
+
+    if (payload.status === 'error') {
+      const error = payload.error ?? { message: 'Unknown API error' };
+      throw new Error(error.message || 'Unknown API error');
+    }
+
+    return payload.data;
+  } catch (err) {
+    if (axios.isAxiosError(err)) {
+      const axiosError = err as AxiosError<ApiResponse<T>>;
+      const message = axiosError.response?.data && 'error' in axiosError.response.data
+        ? axiosError.response.data.error?.message
+        : err.message;
+      throw new Error(message || 'Request failed');
+    }
+
+    throw err instanceof Error ? err : new Error('Unknown request failure');
   }
-);
-
-export const healthApi = {
-  getStatus: async (): Promise<HealthStatus> => {
-    const response = await api.get<ApiResponse<HealthStatus>>('/health_endpoint.php');
-    if (response.data.status === 'error') {
-      throw new Error(response.data.message);
-    }
-    return response.data.data!;
-  },
 };
 
-export const metricsApi = {
-  getLiveMetrics: async (includeAntiDetect = true): Promise<LiveMetrics> => {
-    const response = await api.get(
-      `/metrics_endpoint.php?include_anti_detect=${includeAntiDetect}`
-    );
-    
-    const data = response.data;
-    if (data.success === false) {
-      throw new Error(data.message || 'Failed to fetch metrics');
-    }
-    
-    const metrics = data.metrics || {};
-    const statusCodes = data.status_codes || {};
-    
-    const mappedMetrics: LiveMetrics = {
-      current_rps: metrics.requests_per_second || 0,
-      rps: metrics.requests_per_second || 0,
-      requests_per_second: metrics.requests_per_second || 0,
-      total_requests: metrics.total_requests || 0,
-      success_rate: metrics.success_rate || 0,
-      avg_response_time: metrics.avg_latency_ms || 0,
-      avg_latency: metrics.avg_latency_ms || 0,
-      average_response_time: metrics.avg_latency_ms || 0,
-      active_connections: metrics.active_threads || 0,
-      threads: metrics.active_threads || 0,
-      active_threads: metrics.active_threads || 0,
-      errors: metrics.error_rate_percent || 0,
-      error_count: Math.round((metrics.total_requests || 0) * (metrics.error_rate_percent || 0) / 100),
-      status_codes: {
-        '2xx': statusCodes['200'] || 0,
-        '4xx': (statusCodes['403'] || 0) + (statusCodes['429'] || 0),
-        '5xx': (statusCodes['503'] || 0) + (statusCodes['524'] || 0),
-        '403': statusCodes['403'] || 0,
-        '429': statusCodes['429'] || 0,
-        '524': statusCodes['524'] || 0,
-      },
-      success_count: Math.round((metrics.total_requests || 0) * (metrics.success_rate || 0) / 100),
-      client_error_count: (statusCodes['403'] || 0) + (statusCodes['429'] || 0),
-      server_error_count: (statusCodes['503'] || 0) + (statusCodes['524'] || 0),
-      proxy_stats: {
-        total_proxies: metrics.active_proxies || 0,
-        active_proxies: metrics.active_proxies || 0,
-        rotation_count: data.anti_detect?.proxy_rotation_rate || 0,
-        success_rate: metrics.success_rate || 0,
-      },
-    };
-    
-    return mappedMetrics;
-  },
+export const dashboardApi = {
+  getMetrics: (includeAntiDetect = true): Promise<DashboardMetrics> =>
+    unwrap(api.get<ApiResponse<DashboardMetrics>>('/dashboard', { params: { includeAntiDetect } })),
 };
 
-export const runsApi = {
-  getRuns: async (limit = 50): Promise<Run[]> => {
-    const response = await api.get<ApiResponse<{ runs: Run[] }>>(
-      `/runs_endpoint.php?limit=${limit}`
-    );
-    if (response.data.status === 'error') {
-      throw new Error(response.data.message);
-    }
-    return response.data.data!.runs;
-  },
+export const testRunsApi = {
+  list: (limit = 50): Promise<TestRun[]> =>
+    unwrap(api.get<ApiResponse<TestRun[]>>('/test-runs', { params: { limit } })),
+  get: (runId: string): Promise<TestRunDetails> => unwrap(api.get<ApiResponse<TestRunDetails>>(`/test-runs/${runId}`)),
+};
 
-  getRunDetails: async (runId: string): Promise<RunDetails> => {
-    const response = await api.get<ApiResponse<RunDetails>>(
-      `/runs_endpoint.php?run_id=${runId}`
-    );
-    if (response.data.status === 'error') {
-      throw new Error(response.data.message);
-    }
-    return response.data.data!;
-  },
-
-  startTest: async (request: StartTestRequest): Promise<StartTestResponse> => {
-    const response = await api.post<ApiResponse<StartTestResponse>>(
-      '/start_endpoint.php',
-      request
-    );
-    if (response.data.status === 'error') {
-      throw new Error(response.data.message);
-    }
-    return response.data.data!;
-  },
-
-  stopTest: async (request: StopTestRequest): Promise<void> => {
-    const response = await api.post<ApiResponse>('/stop_endpoint.php', request);
-    if (response.data.status === 'error') {
-      throw new Error(response.data.message);
-    }
-  },
+export const testPlansApi = {
+  list: (limit = 50): Promise<TestPlan[]> =>
+    unwrap(api.get<ApiResponse<TestPlan[]>>('/test-plans', { params: { limit } })),
 };
 
 export const reportsApi = {
-  getReports: async (): Promise<Report[]> => {
-    const response = await api.get<ApiResponse<{ reports: Report[] }>>(
-      '/reports_endpoint.php?action=list'
-    );
-    if (response.data.status === 'error') {
-      throw new Error(response.data.message);
-    }
-    return response.data.data!.reports;
-  },
-
-  downloadReport: async (filename: string): Promise<Blob> => {
-    const response = await api.get(`/reports_endpoint.php?action=download&file=${filename}`, {
-      responseType: 'blob',
-    });
-    return response.data;
-  },
-
-  viewReport: async (filename: string): Promise<any> => {
-    const response = await api.get<ApiResponse<any>>(
-      `/reports_endpoint.php?action=view&file=${filename}`
-    );
-    if (response.data.status === 'error') {
-      throw new Error(response.data.message);
-    }
-    return response.data.data;
-  },
-
-  deleteReport: async (filename: string): Promise<void> => {
-    const response = await api.post<ApiResponse>('/reports_endpoint.php', {
-      action: 'delete',
-      filename: filename
-    });
-    if (response.data.status === 'error') {
-      throw new Error(response.data.message);
-    }
-  },
-
-  cleanupReports: async (olderThanDays: number = 30): Promise<{ deleted_count: number }> => {
-    const response = await api.post<ApiResponse<{ deleted_count: number }>>('/reports_endpoint.php', {
-      action: 'cleanup',
-      older_than_days: olderThanDays
-    });
-    if (response.data.status === 'error') {
-      throw new Error(response.data.message);
-    }
-    return response.data.data!;
-  },
+  list: (): Promise<ReportSummary[]> => unwrap(api.get<ApiResponse<ReportSummary[]>>('/reports')),
 };
 
-export const profilesApi = {
-  getClientProfiles: async (): Promise<{ [key: string]: ClientProfile }> => {
-    const response = await api.get<ApiResponse<{ profiles: { [key: string]: ClientProfile } }>>(
-      '/client_profile.php'
-    );
-    if (response.data.status === 'error') {
-      throw new Error(response.data.message);
-    }
-    return response.data.data!.profiles;
-  },
-
-  getClientProfile: async (profileId: string): Promise<ClientProfile> => {
-    const response = await api.get<ApiResponse<{ profile: ClientProfile }>>(
-      `/client_profile.php?profile_id=${profileId}`
-    );
-    if (response.data.status === 'error') {
-      throw new Error(response.data.message);
-    }
-    return response.data.data!.profile;
-  },
-
-  getTLSProfiles: async (): Promise<{ [key: string]: TLSProfile }> => {
-    const response = await api.get<ApiResponse<{ profiles: { [key: string]: TLSProfile } }>>(
-      '/tls_profile.php'
-    );
-    if (response.data.status === 'error') {
-      throw new Error(response.data.message);
-    }
-    return response.data.data!.profiles;
-  },
-
-  getTLSProfile: async (profileId: string): Promise<TLSProfile> => {
-    const response = await api.get<ApiResponse<{ profile: TLSProfile }>>(
-      `/tls_profile.php?profile_id=${profileId}`
-    );
-    if (response.data.status === 'error') {
-      throw new Error(response.data.message);
-    }
-    return response.data.data!.profile;
-  },
+export const controlApi = {
+  start: (payload: StartTestRequest): Promise<StartTestResponse> =>
+    unwrap(api.post<ApiResponse<StartTestResponse>>('/control/start', payload)),
+  stop: (payload: StopTestRequest): Promise<StopTestResponse> =>
+    unwrap(api.post<ApiResponse<StopTestResponse>>('/control/stop', payload)),
 };
 
-export const wafApi = {
-  detectWAF: async (targetUrl: string): Promise<any> => {
-    const response = await api.post<ApiResponse>('/waf_detector.php', {
-      target_url: targetUrl,
-    });
-    if (response.data.status === 'error') {
-      throw new Error(response.data.message);
+export const legacyControlApi = {
+  start: async (payload: StartTestRequest): Promise<StartTestResponse> => {
+    const response = await api.post<ApiResponse<StartTestResponse>>('/start_endpoint.php', payload);
+    const body = response.data;
+    if (body.status === 'error') {
+      throw new Error(body.error?.message || 'Failed to start test');
     }
-    return response.data.data;
+    return body.data ?? { status: 'ok' };
   },
-
-  getWAFStats: async (): Promise<any> => {
-    const response = await api.get<ApiResponse>('/waf_stats_endpoint.php');
-    if (response.data.status === 'error') {
-      throw new Error(response.data.message);
+  stop: async (payload: StopTestRequest): Promise<StopTestResponse> => {
+    const response = await api.post<ApiResponse<StopTestResponse>>('/stop_endpoint.php', payload);
+    const body = response.data;
+    if (body.status === 'error') {
+      throw new Error(body.error?.message || 'Failed to stop test');
     }
-    return response.data.data;
+    return body.data ?? { status: 'success', group_id: payload.group_id };
   },
+  downloadReport: (filename: string) =>
+    api.get(`/reports_endpoint.php?action=download&file=${encodeURIComponent(filename)}`, { responseType: 'blob' }),
 };
-
-export default api;
